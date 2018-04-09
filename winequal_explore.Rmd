@@ -1,0 +1,706 @@
+---
+title: "STATG019 ICA2 Part A"
+author: "Student Number: 16035918, 16044460, 17107203"
+header-includes:
+   - \usepackage{amsmath, amsfonts, nicefrac, bm, fancyhdr}
+   - \newcommand{\matr}[1]{\bm{\mathrm{#1}}}
+   - \pagestyle{fancy}
+   - \fancyhf{}
+   - \rhead{16035918, 16044460, 17107203}
+   - \rfoot{Page \thepage}
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Data Transformation and Exploration
+## Setup
+
+```{r load_pkgs, message=FALSE, warning=FALSE}
+
+# use pacman for package management
+if(!require("pacman")) {
+    install.packages("pacman")
+}
+
+# load the tidyverse, joyplots (now in ggridges) for plots,
+# magrittr for pipes, summarytools for descriptives
+pacman::p_load(
+  tidyverse, ggridges, magrittr, summarytools, GGally, mclust, feather)
+# load the ML libraries needed for benchmarking
+pacman::p_load(mlr, kernlab, h2o)
+
+```
+
+```{r load_data, message=FALSE}
+
+# read in the csv files
+wine <- 
+  bind_rows(
+    # read in white, encode as 0
+    read_delim('./input/winequality-white.csv', delim=';', guess_max=10000) %>%
+      mutate(color=0L),
+    # read in red, encode as 1
+    read_delim('./input/winequality-red.csv', delim=';', guess_max=10000) %>%
+      mutate(color=1L)
+  )
+
+# check the result
+dim(wine)
+str(wine)
+head(wine)
+summary(wine)
+```
+
+
+```{r helper-functions}
+recode_color_ <- function(x) dplyr::recode(x, `1` = 'Red', `0` = 'White')
+recode_color <- function(x){
+  # used to avoid factors, which can be capricious
+  
+  switch(
+    is.data.frame(x) + 1,
+    # if not a dataframe, directly recode
+    recode_color_(x),
+    # if a dataframe, overwrite color column (presumed to exist)
+    dplyr::mutate(x, color=recode_color_(color))
+  )
+}
+```
+
+## Exploration
+### Summary Statistics
+
+```{r summary-stats}
+q025 <- function(x) quantile(x, 0.25)
+q075 <- function(x) quantile(x, 0.75)
+
+wine_summary <-
+  wine %>%
+  
+  # summary statistics by color
+  # perhaps a little cleaner to look overall?
+  group_by(color) %>%
+  summarize_all(
+    funs(min, q025, median,  mean, q075, max, sd)
+  ) %>%
+  
+  # transform data
+  gather(... = -color) %>%
+  separate(key, into = c('Variable', 'statistic'), sep = '_') %>%
+  spread(key = statistic, value = value)
+
+# order variables with highest variation (after rescaling)
+variable_var <-
+  wine %>%
+  select(-quality, -color) %>%
+  # min-max scale the data
+  mutate_all(funs(. / (max(.) - min(.)))) %>%
+  # take variances
+  summarize_all(var) %>%
+  # reshape and sort
+  gather %>%
+  arrange(-value)
+
+# make beautiful
+wine_summary %>%
+  recode_color %>%
+  select(
+    Color=color, 
+    Variable,
+    Min = min,
+    `1st Quantile` = q025,
+    Median = median,
+    Mean = mean,
+    `3rd Quantile` = q075,
+    Max = max,
+    `S.D.`=sd
+  ) %>%
+  arrange(Variable) %>%
+  knitr::kable(format='latex')
+```
+
+### Histograms
+
+```{r histograms}
+# plot histograms (unscaled)
+wine %>%
+  select(-color) %>%
+  #mutate_at(vars(-alcohol, -pH, -quality), log) %>%
+  gather(key='Variable', value='Value') %>%
+  ggplot(aes(x = Value)) +
+  geom_histogram(bins = 50) +
+  facet_wrap(~Variable, scale='free') +
+  ggtitle('Variable Histograms')
+```
+
+### Pairs Plots of Variables
+
+```{r pairs-plot, message=FALSE}
+# pairs plot of the n variables with the greatest variance
+n <- 5
+wine %>%
+  recode_color %>%
+  ggpairs(
+    mapping=aes(color=color, alpha=0.4),
+    columns=variable_var$key[1:n]
+  )
+```
+
+### Variable correlations
+
+```{r cor-heatmap, fig.height=6, fig.width=6}
+wine_cor <-
+  wine %>%
+  select(-quality, -color) %>%
+  mutate_all(log1p) %>%
+  # get correlations
+  cor
+
+wine_cor[upper.tri(wine_cor, diag = TRUE)] <- NA
+  
+wine_cor %>%
+  reshape2::melt() %>%
+  # plot
+  ggplot(aes(x=Var1, y=Var2, fill=value)) +
+  geom_tile() +
+  scale_fill_gradient2(name = 'Pearson Corr.',
+                       limit=c(-1, 1)) + 
+  # geom_text(aes(label=round(value, 2))) +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  coord_fixed()
+  
+```
+
+## Data Transformation
+
+```{r variable_transformations}
+# Do we need to convert the concentrations that are mg/dm3 compared to those that are g/dm3?
+
+# convert all concentration variables to the log scale
+origwine <- wine
+
+concvars <- c(
+  "fixed acidity",
+  "volatile acidity",
+  "citric acid",
+  "residual sugar",
+  "chlorides",
+  "free sulfur dioxide",
+  "total sulfur dioxide",
+  "sulphates"
+)
+
+wine <- 
+    origwine %>% 
+    mutate_at(.vars = vars(concvars),
+              .funs = log1p) %>% 
+    # scale the data (can turn off later)
+    mutate_at(vars(-color, -quality), funs(scale(.) %>% as.numeric))
+```
+
+### Exploration of Data and Transformed Data
+
+```{r explore}
+
+# get some summaries of the transformed data
+view(summarytools::dfSummary(wine))
+# some data still looks pretty skewed, even after a log transform and standardising
+
+# distribution of wine quality as a factor
+summarytools::freq(wine$quality)
+
+# distribution of wine quality by color
+with(recode_color(wine), summarytools::ctable(color, quality))
+
+# descriptive statistics for all variables - untransformed
+summarytools::descr(origwine, transpose = T)
+
+# descriptive statistics for all variables - transformed
+summarytools::descr(wine, transpose = T)
+
+# descriptive statistics by wine color (using untransformed data)
+origwine_stats_by_color <- by(data = recode_color(origwine), 
+                           INDICES = origwine$color, 
+                           FUN = descr, stats = c("mean", "sd", "min", "med", "max"), transpose = TRUE)
+view(origwine_stats_by_color, method = "pander")
+
+# descriptive statistics by wine color (using transformed data)
+wine_stats_by_color <- by(data = recode_color(wine), 
+                           INDICES = wine$color, 
+                           FUN = descr, stats = c("mean", "sd", "min", "med", "max"), transpose = TRUE)
+view(wine_stats_by_color, method = "pander")
+```
+
+### Ridge plots
+
+```{r plots}
+# ridge plot function
+
+ridgeplot <- function(winevar) {
+    
+    origwine %>%
+        recode_color %>%
+        ggplot(aes(y = quality)) +
+        geom_density_ridges(aes_q(x = as.name(winevar),
+                                  fill = paste(origwine$quality, origwine$color)), 
+                            alpha = .8,
+                            color = "white",
+                            rel_min_height = 0.01) +
+        labs(x = Hmisc::capitalize(gsub(x = winevar,
+                                            pattern = "\\.",
+                                            replacement = " ")),
+             y = "Wine quality") +
+        scale_y_discrete(expand = c(0.01, 0)) +
+        scale_x_continuous(expand = c(0.01, 0)) +
+        scale_fill_cyclical(breaks = c("3 White", "3 Red"),
+                            labels = c(`3 White` = "White", `3 Red` = "Red"),
+                            values = c("#E31A1C", "#33A02C", "#FB9A99", "#B2DF8A"),
+                            name = "Wine color", guide = "legend") +
+        theme_ridges(grid = FALSE, font_size = 11)
+}
+
+ridgeplotlist <- lapply(names(origwine)[1:11], ridgeplot)
+ridgeplots_grid <- ggpubr::ggarrange(plotlist = ridgeplotlist, ncol = 2, nrow = 2)
+ridgeplots_grid
+# write plots to PDF
+#if(!file.exists("winevars_ridgeplots.pdf")){
+#    ggpubr::ggexport(ridgeplots_grid, filename = "winevars_ridgeplots.pdf")
+#}
+```
+## Clustering
+
+```{r kmeans}
+## do clusgap (takes a while)
+## also look at mclust/hclust
+## look at pairs plot
+## look at sulfates v quality, clusters v sulfates, quality v clusters
+## scale as well
+## consider looking at ARI/ASW
+
+mclust_results <-
+  select(wine, -quality, -color) %>%
+  Mclust(1:15)
+```
+
+```{r plot-clustering}
+wine$cluster <- factor(mclust_results$classification)
+
+# do we observe clearly-delineated clusters?
+wine %>%
+  ggpairs(
+      mapping = aes(color = cluster, alpha = 0.4),
+      columns = c(variable_var$key[1:n])
+  )
+  
+# do they divide up quality in any meaningful way?
+# not especially! perhaps this isn't the most salient feature
+wine %>%
+  ggplot(aes(x = quality)) +
+  geom_bar(aes(fill = cluster))
+  
+# also examine relationship to color
+wine %>%
+  recode_color %>%
+  ggplot(aes(x = color)) +
+  geom_bar(aes(fill = cluster))
+
+# remove cluster variable
+wine$cluster <- NULL
+```
+
+# Training Learners
+## Save data
+```{r save-data}
+# save the data in binary format for python interoperability
+write_feather(wine, './intermediate/wine_logged_scaled.feather')
+```
+
+```{python setup, engine.path='C:/Miniconda3/envs/py36/python.exe'}
+import feather
+import scipy
+import numpy as np
+
+from sklearn.dummy import DummyRegressor, DummyClassifier
+from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.svm import SVR, SVC
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from sklearn.neural_network import MLPRegressor, MLPClassifier
+
+from sklearn.model_selection import train_test_split, RandomizedSearchCV
+from sklearn.metrics import mean_squared_error, f1_score, make_scorer
+
+# read in data
+wine = feather.read_dataframe('./intermediate/wine_logged_scaled.feather')
+
+# split into x and y data
+x = wine.drop(['quality'], axis=1)
+y = wine.quality
+
+# split into train and test
+x_train, x_test, y_train, y_test = train_test_split(
+    x, y, test_size=0.2, random_state=1234)
+
+obs, features = x_train.shape
+
+# global configurations
+reg_score = make_scorer(mean_squared_error, greater_is_better=False)
+
+def config_reg_cv(learner, params=None, scorer=reg_score,
+                  n_iter=50, folds=5, njobs=5, **kwargs):
+  """
+  Pre-configure the RandomizedSearchCV for a classifier
+  """
+  if params and not isinstance(learner, LinearRegression):
+    learner = RandomizedSearchCV(
+      learner,
+      params,
+      scorer=scorer,
+      n_iter=n_iter,
+      cv=folds,
+      n_jobs=n_jobs, 
+      **kwargs
+    )
+  return learner
+  
+def config_clf_cv(learner, params=None, scorer=f1_score,
+                  n_iter=50, folds=5, njobs=5, **kwargs):
+  """
+  Pre-configure the RandomizedSearchCV for a classifier
+  """
+  if params:
+    params = {**params, 'class_weight': ['balanced', None]}
+    learner = RandomizedSearchCV(
+      learner,
+      params,
+      scorer=scorer,
+      n_iter=n_iter,
+      cv=folds,
+      n_jobs=n_jobs, 
+      **kwargs
+    )
+  return learner
+
+# build configurations for each of the learners
+params = [
+  ('linear', {
+      'penalty': ['l1', 'l2'],
+      'C': scipy.stats.expon(scale=100)
+    }
+  ),  
+  ('svm', {
+      'C': scipy.stats.expon(scale=100),
+      'gamma': scipy.stats.expon(scale=.1),
+      'kernel': ['rbf']
+  ),
+  ('rf', {
+      'n_estimators': scipy.stats.randint(low=10, high=100),
+      'max_features': scipy.stats.randint(low=2, high=features),
+      'max_depth': [None, scipy.stats.randint(low=2, high=features//2)]
+    }
+  ),
+  ('mlp', {
+      'activation': ['relu', 'logistic'],
+      'hidden_layer_sizes': [(32, 32), (64, 64), (128, 128)],
+      'learning_rate_init': scipy.stats.norm(loc=0.001, scale=0.0002)
+    }
+  )
+]
+
+# create regressors
+regressors = [
+  DummyRegressor(),
+  LinearRegression(),
+  SVR(),
+  RandomForestRegressor(),
+  MLPRegressor()
+]
+regressors = {
+  name: config_reg_cv(learner, p) 
+  for learner, (name, p) in zip(regressors, params)
+}
+
+# create classifiers
+classifiers = [
+  DummyClassifier(),
+  LogisticRegression(),
+  SVC(),
+  RandomForestClassifier(),
+  MLPClassifier()
+]
+
+classifiers = {
+  name: config_clf_cv(l, p) 
+  for (name, learner), params in zip(classifiers, params)
+}
+```
+
+
+## mlr Learners (currently set to "include=FALSE", can turn back on)
+
+```{r modelling_regr, include=FALSE}
+
+# benchmarking for regression
+
+# 1. make regression learners - 4 types
+learners <- 
+    makeLearners(cls = c("lm", "h2o.randomForest", "ksvm", "h2o.deeplearning"),
+                 type = "regr", ids = c("lm", "rf", "ksvm", "nn"),
+                 predict.type = "response")
+
+# 2. make regression task
+
+# make the task
+task <- 
+    makeRegrTask(id = "regr_wine", data = wine, target = "quality")
+
+# 3. decide the success measures for regression - MSE and explained variance, along with time for training
+measures <- 
+    list(mse, expvar, timetrain) 
+
+# 4. tune hyperparameters
+
+# make a model multiplexer to tune all the learners
+lrn <-  makeModelMultiplexer(learners)
+
+# set the search space of the tunable parameters for each learner
+ps <- 
+    makeModelMultiplexerParamSet(
+        lrn,
+        rf = makeParamSet(
+            makeIntegerParam("ntrees", lower = 1L, upper = 500L)),
+        ksvm = makeParamSet(
+            makeNumericParam("C", lower = 1, upper = 5, trafo = function(x) 2^x),
+            makeNumericParam("sigma", lower = 1, upper = 5, trafo = function(x) 2^x)
+),
+        nn = makeParamSet(
+            makeIntegerParam("hidden", lower = 1, upper = 8, trafo = function(x) 2^x))
+    )
+print(ps)
+
+# set the resampling evaluation method - 3 fold CV
+rdesc <- makeResampleDesc("CV", iters = 3L)
+
+# specify the optimisation algorithm    
+# to save some time we use random search. but you probably want something like this:
+# ctrl = makeTuneControlIrace(maxExperiments = 500L)
+ctrl <- makeTuneControlRandom(maxit = 10L)
+
+# perform the tuning use MSE as the tuning measure
+res <- tuneParams(learner = lrn, 
+                  task = task, 
+                  resampling = rdesc, 
+                  par.set = ps, 
+                  control = ctrl, 
+                  measures = list(mse, setAggregation(mse, test.sd)), 
+                  show.info = TRUE)
+
+# look at the results
+print(res)
+
+# Tune result:
+# Op. pars: selected.learner=rf; rf.ntrees=437
+# mse.test.mean=0.3750933,mse.test.sd=0.0227736
+tune_results_df <- as.data.frame(res$opt.path)
+
+# get the best hyperparameters by learner type
+best_tuned <- 
+    tune_results_df %>% 
+    group_by(selected.learner) %>% 
+    filter(mse.test.mean == min(mse.test.mean))
+
+# 5. estimate error out-of-sample for all models and baselines
+valsetup <-
+    makeResampleDesc("CV", iters = 5)
+
+# 6. run benchmarking experiment (using tuned parameters from above)
+regr_bmresults <-
+    benchmark(
+        learners = list(
+            makeLearner(cl = "regr.lm", id = "lm", predict.type = "response"),
+            makeLearner(cl = "regr.h2o.randomForest", id = "rf", predict.type = "response", par.vals = list(ntrees = best_tuned[best_tuned$selected.learner == "rf",]$rf.ntrees)),
+            makeLearner(cl = "regr.ksvm", id = "ksvm", predict.type = "response", par.vals = list(C = best_tuned[best_tuned$selected.learner == "ksvm",]$ksvm.C, sigma = best_tuned[best_tuned$selected.learner == "ksvm",]$ksvm.sigma)),
+            makeLearner(cl = "regr.h2o.deeplearning", id = "nn", predict.type = "response", par.vals = list(hidden = best_tuned[best_tuned$selected.learner == "nn",]$nn.hidden))
+        ), 
+        tasks = task, 
+        resamplings = valsetup, 
+        measures = measures)
+
+# 7. look at the benchmarking results
+getBMRAggrPerformances(regr_bmresults)
+getBMRPerformances(regr_bmresults)
+getBMRPredictions(regr_bmresults)
+
+# a few built-in plots
+regr_bmplot1 <- plotBMRBoxplots(regr_bmresults, measure = mse)
+levels(regr_bmplot1$data$task.id) = c("Univariate regression")
+levels(regr_bmplot1$data$learner.id) = c("Linear model", "Random forest", "RBF SVM","Neural network")
+ggsave(filename = "regr_bmplot1.pdf", regr_bmplot1)
+
+regr_bmplot2 <- plotBMRBoxplots(regr_bmresults, measure = mse, style = "violin", pretty.names = TRUE) + aes(color = learner.id) + theme(strip.text.x = element_text(size = 8), legend.position = "none")
+levels(regr_bmplot2$data$task.id) = c("Univariate regression")
+levels(regr_bmplot2$data$learner.id) = c("Linear model", "Random forest", "RBF SVM","Neural network")
+ggsave(filename = "regr_bmplot2.pdf", regr_bmplot2)
+
+## DO THE REST OF THE HYPOTHESIS TESTS AND TASKS COMPARISONS AT THE END OF THIS, ONCE WE HAVE CLASSIFICATION BENCHMARK RESULTS TOO https://mlr-org.github.io/mlr-tutorial/release/html/benchmark_experiments/index.html#benchmark-analysis-and-visualization ##
+
+# 8. try to calculate bootstrapped confidence intervals of the test MSEs
+
+get_mse_cis <- function(mse_vector) {
+    b <- boot::boot(data = mse_vector, function(u,i) mean(u[i]), R = 999)
+    mseci <- boot::boot.ci(b, type = c("norm"))
+}
+
+lm_mse_cis <- get_mse_cis(getBMRPerformances(regr_bmresults)$regr_wine$lm$mse)
+rf_mse_cis <- get_mse_cis(getBMRPerformances(regr_bmresults)$regr_wine$rf$mse)
+ksvm_mse_cis <- get_mse_cis(getBMRPerformances(regr_bmresults)$regr_wine$ksvm$mse)
+nn_mse_cis <- get_mse_cis(getBMRPerformances(regr_bmresults)$regr_wine$nn$mse)
+
+# get the regression models' confidence intervals
+regr_mse_cis <- list("lm" = c(lm_mse_cis$t0, lm_mse_cis$normal[2:3]), "rf" = c(rf_mse_cis$t0, rf_mse_cis$normal[2:3]), "ksvm" = c(ksvm_mse_cis$t0, ksvm_mse_cis$normal[2:3]), "nn" = c(nn_mse_cis$t0, nn_mse_cis$normal[2:3]))
+
+# NEED TO PUT BENCHMARK RESULTS INTO A TABLE
+```
+
+```{r modelling_classif, include=FALSE}
+
+# benchmarking for classification
+
+# 1. make classification learners - 4 types
+learners = list(
+            # makeLearner(cl = "classif.h2o.glm", id = "lm", predict.type = "response", link = "logit"),
+            makeLearner(cl = "classif.h2o.randomForest", id = "rf", predict.type = "response"),
+            makeLearner(cl = "classif.ksvm", id = "ksvm", predict.type = "response"),
+            makeLearner(cl = "classif.h2o.deeplearning", id = "nn", predict.type = "response")
+        )
+
+# 2. make classification task
+
+# turn output variable back into a factor
+wine$quality <- as.factor(wine$quality)
+
+# make the task
+task <- 
+    makeClassifTask(id = "classif_wine", data = wine, target = "quality")
+
+# 3. decide the success measures for classification - accuracy and F1 score, along with time for training
+measures <- 
+    list(acc, timetrain) 
+
+# 4. tune hyperparameters
+
+# make a model multiplexer to tune all the learners
+lrn <-  makeModelMultiplexer(learners)
+
+# set the search space of the tunable parameters for each learner
+ps <- 
+    makeModelMultiplexerParamSet(
+        lrn,
+        rf = makeParamSet(
+            makeIntegerParam("ntrees", lower = 1L, upper = 200L)),
+        ksvm = makeParamSet(
+            makeNumericParam("C", lower = 1, upper = 5, trafo = function(x) 2^x),
+            makeNumericParam("sigma", lower = 1, upper = 5, trafo = function(x) 2^x)
+),
+        nn = makeParamSet(
+            makeIntegerParam("hidden", lower = 1, upper = 8, trafo = function(x) 2^x))
+    )
+print(ps)
+
+# set the resampling evaluation method - 3 fold CV
+rdesc <- makeResampleDesc("CV", iters = 3L)
+
+# specify the optimisation algorithm    
+# to save some time we use random search. but you probably want something like this:
+# ctrl = makeTuneControlIrace(maxExperiments = 500L)
+ctrl <- makeTuneControlRandom(maxit = 10L)
+
+# perform the tuning use accuracy as the tuning measure
+res <- tuneParams(learner = lrn, 
+                  task = task, 
+                  resampling = rdesc, 
+                  par.set = ps, 
+                  control = ctrl, 
+                  measures = list(acc, setAggregation(acc, test.sd)), 
+                  show.info = TRUE)
+
+# look at the results
+print(res)
+
+# Tune result:
+# Op. pars: selected.learner=rf; rf.ntrees=134
+# acc.test.mean=0.6720016,acc.test.sd=0.0118452
+tune_results_df <- as.data.frame(res$opt.path)
+
+# get the best hyperparameters by learner type
+best_tuned <- 
+    tune_results_df %>% 
+    group_by(selected.learner) %>% 
+    filter(acc.test.mean == min(acc.test.mean))
+
+# 5. estimate error out-of-sample for all models and baselines
+valsetup <-
+    makeResampleDesc("CV", iters = 5)
+
+# 6. run benchmarking experiment (using tuned parameters from above)
+classif_bmresults <-
+    benchmark(
+        learners = list(
+            # makeLearner(cl = "classif.h2o.glm", id = "lm", predict.type = "response", link = "logit"),
+            makeLearner(cl = "classif.h2o.randomForest", id = "rf", predict.type = "response", par.vals = list(ntrees = best_tuned[best_tuned$selected.learner == "rf",]$rf.ntrees)),
+            makeLearner(cl = "classif.ksvm", id = "ksvm", predict.type = "response", par.vals = list(C = best_tuned[best_tuned$selected.learner == "ksvm",]$ksvm.C, sigma = best_tuned[best_tuned$selected.learner == "ksvm",]$ksvm.sigma)),
+            makeLearner(cl = "classif.h2o.deeplearning", id = "nn", predict.type = "response", par.vals = list(hidden = best_tuned[best_tuned$selected.learner == "nn",]$nn.hidden))
+        ), 
+        tasks = task, 
+        resamplings = valsetup, 
+        measures = measures)
+
+# 7. look at the benchmarking results
+getBMRAggrPerformances(classif_bmresults)
+getBMRPerformances(classif_bmresults)
+getBMRPredictions(classif_bmresults)
+
+# a few built-in plots
+classif_bmplot1 <- plotBMRBoxplots(classif_bmresults, measure = acc)
+levels(classif_bmplot1$data$task.id) = c("Deterministic classification")
+levels(classif_bmplot1$data$learner.id) = c("Random forest", "RBF SVM","Neural network")
+classif_bmplot1
+ggsave(filename = "classif_bmplot1.pdf", classif_bmplot1)
+
+
+classif_bmplot2 <- plotBMRBoxplots(classif_bmresults, measure = acc, style = "violin", pretty.names = TRUE) + aes(color = learner.id) + theme(strip.text.x = element_text(size = 8), legend.position = "none")
+levels(classif_bmplot2$data$task.id) = c("Deterministic classification")
+levels(classif_bmplot2$data$learner.id) = c("Random forest", "RBF SVM","Neural network")
+ggsave(filename = "classif_bmplot12.pdf", classif_bmplot2)
+
+## DO THE REST OF THE HYPOTHESIS TESTS AND TASKS COMPARISONS AT THE END OF THIS, ONCE WE HAVE CLASSIFICATION BENCHMARK RESULTS TOO https://mlr-org.github.io/mlr-tutorial/release/html/benchmark_experiments/index.html#benchmark-analysis-and-visualization ##
+
+# 8. try to calculate bootstrapped confidence intervals of the test MSEs
+
+get_mse_cis <- function(mse_vector) {
+    b <- boot::boot(data = mse_vector, function(u,i) mean(u[i]), R = 999)
+    mseci <- boot::boot.ci(b, type = c("norm"))
+}
+
+lm_mse_cis <- get_mse_cis(getBMRPerformances(regr_bmresults)$regr_wine$lm$mse)
+rf_mse_cis <- get_mse_cis(getBMRPerformances(regr_bmresults)$regr_wine$rf$mse)
+ksvm_mse_cis <- get_mse_cis(getBMRPerformances(regr_bmresults)$regr_wine$ksvm$mse)
+nn_mse_cis <- get_mse_cis(getBMRPerformances(regr_bmresults)$regr_wine$nn$mse)
+
+# get the regression models' confidence intervals
+classif_mse_cis <- list("lm" = c(lm_mse_cis$t0, lm_mse_cis$normal[2:3]), "rf" = c(rf_mse_cis$t0, rf_mse_cis$normal[2:3]), "ksvm" = c(ksvm_mse_cis$t0, ksvm_mse_cis$normal[2:3]), "nn" = c(nn_mse_cis$t0, nn_mse_cis$normal[2:3]))
+
+# NEED TO PUT BENCHMARK RESULTS INTO A TABLE
+```
+
+
+```{r h2o_shutdown, include=FALSE}
+# close h2o connection
+h2o::h2o.shutdown(prompt = FALSE)
+```
+
