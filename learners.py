@@ -11,7 +11,8 @@ from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.neural_network import MLPRegressor, MLPClassifier
 
 from sklearn.model_selection import train_test_split, RandomizedSearchCV
-from sklearn.metrics import mean_squared_error, f1_score, make_scorer
+from sklearn.metrics import (
+  mean_squared_error, mean_absolute_error, f1_score, make_scorer)
 
 # read in data
 wine = feather.read_dataframe('./intermediate/wine_logged_scaled.feather')
@@ -27,37 +28,22 @@ x_train, x_test, y_train, y_test = train_test_split(
 obs, features = x_train.shape
 
 # global configurations
-reg_score = make_scorer(mean_squared_error, greater_is_better=False)
+mse_scorer = make_scorer(mean_squared_error, greater_is_better=False)
+mae_scorer = make_scorer(mean_absolute_error, greater_is_better=False)
+f1_scorer = make_scorer(f1_score, labels=[3,4,5,6,7,8,9], average='micro')
 
-def config_reg_cv(learner, params=None, scoring=reg_score,
-                  n_iter=200, folds=10, n_jobs=6, **kwargs):
+def config_cv(learner, scoring=None, params=None,
+              n_iter=200, folds=3, n_jobs=8, **kwargs):
   """
-  Pre-configure the RandomizedSearchCV for a classifier
+  Pre-configure the RandomizedSearchCV
   """
-  if isinstance(learner, (LinearRegression)):
-    params = {}
-  if len(params) == 0:
-    n_iter = 1
-  learner = RandomizedSearchCV(
-    learner,
-    params,
-    scoring=scoring,
-    n_iter=n_iter,
-    cv=folds,
-    n_jobs=n_jobs, 
-    **kwargs
-  )
-  return learner
-  
-def config_clf_cv(learner, params=None, scoring=f1_score,
-                  n_iter=200, folds=10, n_jobs=7, **kwargs):
-  """
-  Pre-configure the RandomizedSearchCV for a classifier
-  """
-  if not isinstance(learner, (DummyClassifier)):
+  if isinstance(learner, (LogisticRegression, SVC, RandomForestClassifier)):
     params = {**params, 'class_weight': ['balanced', None]}
-  if len(params) == 0:
+  if isinstance(learner, LinearRegression):
+    params = {}
+  if not params:
     n_iter = 1
+  
   learner = RandomizedSearchCV(
     learner,
     params,
@@ -106,8 +92,10 @@ regressors = [
   RandomForestRegressor(),
   MLPRegressor()
 ]
+
+scorers = {'mse': mse_scorer, 'mae': mae_scorer}
 regressors = {
-  name: config_reg_cv(learner, p) 
+  name: config_cv(learner, scorers, p, refit='mse') 
   for learner, (name, p) in zip(regressors, params)
 }
 
@@ -120,8 +108,9 @@ classifiers = [
   MLPClassifier()
 ]
 
+scorers['f1'] = f1_scorer
 classifiers = {
-  name: config_clf_cv(learner, p) 
+  name: config_cv(learner, scorers, p, refit='f1') 
   for learner, (name, p) in zip(classifiers, params)
 }
 
@@ -129,13 +118,12 @@ classifiers = {
 np.random.seed(12345)
 for name, reg in regressors.items():
     print('On {} regressor'.format(name))
-    if name in ['mlp']:
-      reg.fit(x_train, y_train)
-      with open('./intermediate/reg_{}.pkl'.format(name), 'wb') as o:
-          pickle.dump(reg, o)
+    reg.fit(x_train, y_train)
+    with open('./intermediate/reg_{}.pkl'.format(name), 'wb') as o:
+        pickle.dump(reg, o)
 
 np.random.seed(12345)
-for name, clf in classifiers.items():
+for name, clf in classifiers. items():
     print('On {} classifier'.format(name))
     clf.fit(x_train, y_train)
     with open('./intermediate/clf_{}.pkl'.format(name), 'wb') as o:
