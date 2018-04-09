@@ -14,7 +14,7 @@ from sklearn.model_selection import train_test_split, RandomizedSearchCV
 from sklearn.metrics import (
   mean_squared_error, mean_absolute_error, f1_score, make_scorer)
 
-def main(data_fpath, model_dir):
+def train(data_fpath, model_dir):
   # read in data
   wine = feather.read_dataframe(data_fpath)
 
@@ -131,4 +131,4 @@ def main(data_fpath, model_dir):
           pickle.dump(clf, o)
 
 if __name__ == '__main__':
-  main('./intermediate/wine_logged_scaled.feather', 'scaled')
+  train('./intermediate/wine_logged_unscaled.feather', 'unscaled')
