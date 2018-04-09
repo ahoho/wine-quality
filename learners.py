@@ -33,7 +33,7 @@ mae_scorer = make_scorer(mean_absolute_error, greater_is_better=False)
 f1_scorer = make_scorer(f1_score, labels=[3,4,5,6,7,8,9], average='micro')
 
 def config_cv(learner, scoring=None, params=None,
-              n_iter=200, folds=3, n_jobs=8, **kwargs):
+              n_iter=300, folds=3, n_jobs=8, **kwargs):
   """
   Pre-configure the RandomizedSearchCV
   """
@@ -93,9 +93,9 @@ regressors = [
   MLPRegressor()
 ]
 
-scorers = {'mse': mse_scorer, 'mae': mae_scorer}
+scorers_reg = {'mse': mse_scorer, 'mae': mae_scorer}
 regressors = {
-  name: config_cv(learner, scorers, p, refit='mse') 
+  name: config_cv(learner, scorers_reg, p, refit='mse') 
   for learner, (name, p) in zip(regressors, params)
 }
 
@@ -108,9 +108,9 @@ classifiers = [
   MLPClassifier()
 ]
 
-scorers['f1'] = f1_scorer
+scorers_clf = {'mse': mse_scorer, 'mae': mae_scorer, 'f1': f1_scorer}
 classifiers = {
-  name: config_cv(learner, scorers, p, refit='f1') 
+  name: config_cv(learner, scorers_clf, p, refit='f1') 
   for learner, (name, p) in zip(classifiers, params)
 }
 
