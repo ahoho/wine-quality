@@ -1,0 +1,34 @@
+# Task A1
+
+## The questions:
+
+1. Can we use the sommelier/wine data to create an AI with super-human performance in wine tasting?
+2. Which components of wine make a wine a good wine?
+3. Can the AI use the data to create the perfect wine, i.e., wine whose quality exceeds all that we have seen?
+4. Whether human perception of wine quality is all but subjective, i.e., perhaps there is no empirically verifiable correlate of "good" and "bad" for wine. For any such perception could be entirely a result of human biases, incompetence, unintentional priming, and self-delusion, based on say a high-quality label on the wine bottle, the price tag, or an authoritative expert opinion. And if so, what would it be that AIs could, or would learn from humans?
+
+## Meena
+Question 1 cannot be answered using only the wine data provided. We cannot use the wine data to create an AI with super-human performance in wine-tasting, because there is no true, objective, consistent and reliable measure of wine quality. This means the AI cannot "out-perform" the sommelier with regards to judging the quality of the wine; the AI can only support the wine judgements of the human sommelier. The AI could potentially be used to identify under-performing sommeliers, such as those who produce inconsistent quality ratings for exactly the same wine. Such a task cannot, however, be done with the current wine dataset.
+
+Question 2 can be answered using only the wine data provided. However, some restrictions to the scope of the question need to be made. We can answer the question "which components of wine make a wine a good wine?" if we restrict components to refer to the objective physiochemical and colour variables we have on the wine, wine to refer to vinho verde Portugese 2004-2007 red and white wine, and good to refer to a median wine quality grade of 8 or higher given to the wine by at least 3 sensory analysis evaluations made by wine experts.
+
+Question 3 cannot be answered using only the wine data provided, as while the AI might be able to identify which variables are associated with higher or lower grades in wine quality, the model may not necessarily produce a wine with a quality that exceeds all that we have seen i.e. a grade 10 wine. This is because no grade 10 wine exists in the wine dataset used to train the model, so the AI would have to extrapolate the model beyond the labels seen in the training data. This is problematic, as the relationships identified by the model, and the assumptions made by the model, are only valid for data in the scope of the training data. Further, extrapolating in this way may result in the prediction of labels that are outside those of the wine quality evaluation scale (0 to 10). A solution could be to use zero-shot learning with a distributed representation of wine quality, so that previously unseen labels could be predicted (see e.g. chapter 15 of Goodfellow et al., 2016; Kiela, 2017).  Producing a semantic representation of wine quality is, however, beyond the scope of the wine data provided.
+
+Question 4 cannot be answered by the wine data alone because we have no true, objective measure of wine quality. Human perceptions of wine quality might well be biased, and, as such, all that the AIs will learn from wine data that is created by humans is the same (potentially biased) perceptions of wine quality that humans have.
+
+According to Cortez et al. (2009), red and white wine tastes are quite different. As such, it may not make sense, from a wine-tasting perspective, to create a single model trained on a joint red and white wine dataset to predict wine quality. It is plausible that the variables included in the training dataset relate to wine quality in different ways for red and white wine.
+
+## Hoyle
+1. What would it mean to be super-human in this scenario? Presumably we will be using the human scores to train and evaluate our learner; there is no externally-derived metric by which to compare the learner's performance with humans'. If we collected sommeliers' predictions of wine type, origin, price, etc. as well as the true values of these variables, we could then compare the learner's ability to that of the humans'.
+
+2. Supposing that the sommelier's predictions are meaningful (it would be perhaps helpful to have the full sample of scores from each rater, the variance, or inter-rater reliability), then we can use their scores to define what constitutes a good wine. Then we can observe the variables that are most predictive of these scores, and most associated with highly-rated wines.
+
+3. If we are able to create a sufficiently interperetable model - say a linear regression - for which we have coefficients that are significantly associated with high-quality wine, we may be able to use this information to, at the very least, modify or combine existing wines (technological feasibility aside). Of course, we know that any proposed relationship between a chemical component and quality will completely fail at especially high levels, although it's possible that entirely eliminating certain chemicals (subject to the laws of chemistry) could generate a higher-quality wine. Naturally, we will need to consider how any generated wine is evaluated -- we would require that the reviewers were sufficiently reliable and our rating scheme adjusted to accommodate values above 10 (and are willing to risk their health) in order to make a strong judgement on improved quality. We could also sell the wine to determine if the market judges it to be vastly preferable to existing wines.
+
+4. Here we can observe the outputs of a model (or several reasonable models) to determine if certain variables do appear to have a strong correlation with rater ability (which, as assessed, is blind). We would need to know that these variables do not tend to correlate with external . Moreover, we will only be assessing the judgement of experts, rather than the general public (or some other group). It is entirely possible that they have been indoctrinated in a faith that prefers certain qualities over others, ones that are perhaps divorced from some true sense of quality.
+
+## Explicit Scientific Questions
+1. Supposing that certain variables are detectable early in the wine-making process, is it possible to train a model on these variables alone that is sufficiently predictive of the sommelier ratings?
+2. Which features are most strongly associated with high-quality ratings?
+3. Is it possible to simulate a (reasonable) dataset of wines, upon some subset of which our "best" learner estimates a rating of 10?
+4. Can we produce a model that is predictive of the expert ratings? Do the raw data support relationships between objective qualities and the ratings? Can an unsupervised method determine any clusters that bear some relationship to ratings (avg. silhouette width/adjusted rand index)?
