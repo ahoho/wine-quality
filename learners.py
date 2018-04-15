@@ -156,6 +156,27 @@ def train(model_dir, x_train, y_train):
 
     return regressors, classifiers
 
+  def evaluate_models(model_dir, metric, x_test, y_test, **kwargs):
+    """
+    Evaluate the models and save the results
+    """
+    all_models = load_models(model_dir)
+    results = []
+    # iterate through models
+    for model_type, models in zip(('reg', 'clf'), all_models):
+      
+      for model_name, model in models.items():
+        mean, lb, ub = test_err_bootstrap(model, metric, x_test, y_test, **kwargs)
+        results.append({
+          'type': model_type,
+          'model': model_name,
+          'mean': mean,
+          'lb': lb,
+          'ub': ub}
+        )
+
+    return results
+
   def test_err_cv(model, metric, test_x, test_y, n_splits=3, seed=1234):
     """
     Calculate mean and confidence intervals for a metric on a cross-validated
@@ -199,10 +220,24 @@ def train(model_dir, x_train, y_train):
 
 if __name__ == '__main__':
   data_fpath = './intermediate/wine_logged_unscaled.feather'
-  x_train, x_test, y_train, y_test = gen_data(data_fpath)
+  
   # train on all data
+  x_train, x_test, y_train, y_test = gen_data(data_fpath)
   train('unscaled')
+
+  # train on colors only
+  x_train_col, x_test_col, y_train_col, y_test_col = gen_data(
+    data_fpath, features_to_drop=[c for c in x_train.columns if c not 'color'])
+  train('unscaled-color')
+
+  # train on chemicals, no color
+  x_train_chm, x_test_chm, y_train_chm, y_test_chm = gen_data(
+    data_fpath, features_to_drop=['color'])
+  train('unscaled-chemical')
+
 
   # TODO:
   # finish variance reduction/kfold
-  # 
+  # evaluate with chemicals/colors
+  # determine most important tree features
+  # determine linear regression coefficients
