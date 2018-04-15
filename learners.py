@@ -10,31 +10,31 @@ from sklearn.svm import SVR, SVC
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.neural_network import MLPRegressor, MLPClassifier
 
-from sklearn.model_selection import train_test_split, RandomizedSearchCV
+from sklearn.model_selection import (
+  train_test_split, RandomizedSearchCV, KFold, StratifiedKFold)
 from sklearn.metrics import (
   mean_squared_error, mean_absolute_error, f1_score, make_scorer)
+from sklearn.utils import resample
 
-def train(data_fpath, model_dir):
+def gen_data(data_fpath, test_size=0.2, random_state=1234, features_to_drop=[]):
+  """
+  Generate train and test data, optionally dropping features
+  """
   # read in data
   wine = feather.read_dataframe(data_fpath)
 
   # split into x and y data
-  x = wine.drop(['quality'], axis=1)
+  x = wine.drop(['quality'] + features_to_drop, axis=1)
   y = wine.quality
 
   # split into train and test
   x_train, x_test, y_train, y_test = train_test_split(
-      x, y, test_size=0.2, random_state=1234)
+      x, y, test_size=test_size, random_state=random_state)
 
-  obs, features = x_train.shape
+  return x_train, x_test, y_train, y_test
 
-  # global configurations
-  mse_scorer = make_scorer(mean_squared_error, greater_is_better=False)
-  mae_scorer = make_scorer(mean_absolute_error, greater_is_better=False)
-  f1_scorer = make_scorer(f1_score, labels=[3,4,5,6,7,8,9], average='micro')
-
-  def config_cv(learner, scoring=None, params=None,
-                n_iter=300, folds=3, n_jobs=8, **kwargs):
+def config_cv(learner, scoring=None, params=None,
+              n_iter=300, folds=3, n_jobs=8, **kwargs):
     """
     Pre-configure the RandomizedSearchCV
     """
@@ -55,6 +55,17 @@ def train(data_fpath, model_dir):
       **kwargs
     )
     return learner
+
+def train(model_dir, x_train, y_train):
+  """
+  Train models
+  """
+  obs, features = x_train.shape
+
+  # global configurations
+  mse_scorer = make_scorer(mean_squared_error, greater_is_better=False)
+  mae_scorer = make_scorer(mean_absolute_error, greater_is_better=False)
+  f1_scorer = make_scorer(f1_score, labels=[3,4,5,6,7,8,9], average='micro')
 
   # build configurations for each of the learners
   params = [
@@ -130,5 +141,68 @@ def train(data_fpath, model_dir):
       with open('./intermediate/{}/clf_{}.pkl'.format(model_dir, name), 'wb') as o:
           pickle.dump(clf, o)
 
+  def load_models(model_dir):
+    """
+    Load saved models
+    """
+    model_names = ['dummy', 'linear', 'svm', 'rf', 'mlp']
+    regressors, classifiers = {}, {}
+
+    for name in model_names:
+      with open('./intermediate/{}/reg_{}.pkl'.format(model_dir, name), 'rb') as i:
+        regressors[name] = pickle.load(i)
+      with open('./intermediate/{}/clf_{}.pkl'.format(model_dir, name), 'rb') as i:
+        classifiers[name] = pickle.load(i)
+
+    return regressors, classifiers
+
+  def test_err_cv(model, metric, test_x, test_y, n_splits=3, seed=1234):
+    """
+    Calculate mean and confidence intervals for a metric on a cross-validated
+    dataset
+    N.B.: metric should be point-wise
+    """
+    # unsure whether to use stratified k-fold or regular k-fold?
+    skf = StratifiedKFold(n_splits=3)
+    errors = np.array([])
+
+    for idx, _ in skf.split(test_x, test_y):
+      test_x_fold, test_y_fold = test_x[idx], text_y[idx]
+      pred_y_fold = model.predict(test_x_fold)
+      error = metric(test_y_fold, pred_y_fold)
+      errors = np.concatenate([errors, error])
+
+    mean = np.mean(errors)
+    # TODO:
+
+
+  def test_err_bootstrap(model, metric, x_test, y_test,
+                         n_iter=1000, alpha=0.05, seed=1234):
+    """
+    Calculate mean and 100*(1-alpha)% central confidence intervals for a metric
+    on a bootstrapped dataset
+    """
+    np.random.seed(seed)
+    results = []
+
+    for _ in range(n_iter):
+      # by default, samples the same number in array, with replacement
+      x_test_bs, y_test_bs = resample(x_test, y_test)
+      y_pred_bs = model.predict(x_test_bs)
+      results.append(metric(y_test_bs, y_pred_bs))
+    
+    a = 100 * alpha / 2
+    lb, ub = np.percentile(results, (a, 100 - a))
+    mean = np.mean(results)
+
+    return mean, lb, ub
+
 if __name__ == '__main__':
-  train('./intermediate/wine_logged_unscaled.feather', 'unscaled')
+  data_fpath = './intermediate/wine_logged_unscaled.feather'
+  x_train, x_test, y_train, y_test = gen_data(data_fpath)
+  # train on all data
+  train('unscaled')
+
+  # TODO:
+  # finish variance reduction/kfold
+  # 
