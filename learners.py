@@ -223,17 +223,17 @@ if __name__ == '__main__':
   
   # train on all data
   x_train, x_test, y_train, y_test = gen_data(data_fpath)
-  train('unscaled')
+  #train('unscaled', x_train, y_train)
 
   # train on colors only
   x_train_col, x_test_col, y_train_col, y_test_col = gen_data(
-    data_fpath, features_to_drop=[c for c in x_train.columns if c not 'color'])
-  train('unscaled-color')
+    data_fpath, features_to_drop=[c for c in x_train.columns if c != 'color'])
+  train('unscaled-color', x_train, y_train)
 
   # train on chemicals, no color
   x_train_chm, x_test_chm, y_train_chm, y_test_chm = gen_data(
     data_fpath, features_to_drop=['color'])
-  train('unscaled-chemical')
+  train('unscaled-chemical', x_train, y_train)
 
 
   # TODO:
