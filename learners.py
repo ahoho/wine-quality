@@ -86,7 +86,7 @@ def train(model_dir, x_train, y_train):
     ),
     ('rf', {
         'n_estimators': scipy.stats.randint(low=10, high=100),
-        'max_features': scipy.stats.randint(low=2, high=features),
+        'max_features': scipy.stats.randint(low=2, high=features) if features > 1 else [1],
         'max_depth': [None] # consider making this random as well
       }
     ),
@@ -121,7 +121,7 @@ def train(model_dir, x_train, y_train):
     SVC(),
     RandomForestClassifier(),
     MLPClassifier()
-  ]
+   ]
 
   scorers_clf = {'mse': mse_scorer, 'mae': mae_scorer, 'f1': f1_scorer}
   classifiers = {
@@ -193,7 +193,6 @@ def test_err_bootstrap(model, metric, x_test, y_test,
     x_test_bs, y_test_bs = resample(x_test, y_test)
     y_pred_bs = model.predict(x_test_bs)
     results.append(metric(y_test_bs, y_pred_bs))
-    print(i, end='\r', flush=True)
   
   a = 100 * alpha / 2
   lb, ub = np.percentile(results, (a, 100 - a))
@@ -279,7 +278,7 @@ if __name__ == '__main__':
   ## Training
   if TRAIN_MODELS:
     # train on all data
-    #train('unscaled', x_train, y_train)
+    train('unscaled', x_train, y_train)
 
     # train on colors only
     train('unscaled-color', x_train_col, y_train_col)
