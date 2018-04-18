@@ -1,3 +1,4 @@
+## Questions to Answer (many, come in as A5)
 * 1. Superhuman
     * Scalable
     * Early detection in manufacuturing process
@@ -5,6 +6,10 @@
         * One expert could vary on the same wine
     * Not necessarily susceptible to cultural biases, etc.
     * Won't get drunk, can work at all times of day
+    * Sulfates, volatile acidity, residual sugar
+    * Caveat: although we select sulfates, sugar, whatever, note that these measurements will be different from what we see in the course of winemaking
+    * Caveat: a person might be able to use these "early warning" variables to make better predictions than an agent, but ....blah
+    * Subset of stuff that isn't wine anymore but still predicts wine quality -- human's can't just "taste" ph
 * 2. What makes a good wine?
     * Use exploratory data analysis
     * Correlation plots btw quality and different variables
@@ -41,6 +46,10 @@
         * could make better assessments about human variabiltiy
         * could be more predictive (say, yearly rainfall)
 
+### Task A4
+* Do plots of the performances of each
+* Dig deep on one of the models, if necessary
+* Redo classificaton with weighted f1
 
 ### 
 ```python
