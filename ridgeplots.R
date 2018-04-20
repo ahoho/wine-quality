@@ -9,8 +9,8 @@ library(pacman)
 p_load(tidyverse, ggridges, magrittr)
 
 # read in the original csv files
-red <- read.csv(file = "winequality/winequality-red.csv", header = T, sep = ";")
-white <- read.csv(file = "winequality/winequality-white.csv", header = T, sep = ";")
+red <- read.csv(file = "./input/winequality-red.csv", header = T, sep = ";")
+white <- read.csv(file = "./input/winequality/winequality-white.csv", header = T, sep = ";")
   
 # add a dummy that is 1 for red wine and 0 for white wine (number of obs: red wine - 1599; white wine - 4898)
 red$winecolour <- 1
@@ -75,6 +75,6 @@ ridgeplotlist <- lapply(names(origwine)[1:11], ridgeplot)
 ridgeplots_grid <- ggpubr::ggarrange(plotlist = ridgeplotlist, ncol = 2, nrow = 2)
 
 # write plots to PDF
-if(!file.exists("winevars_ridgeplots.pdf")){
-      ggpubr::ggexport(ridgeplots_grid, filename = "winevars_ridgeplots.pdf")
-  }
+# if(!file.exists("winevars_ridgeplots.pdf")){
+#       ggpubr::ggexport(ridgeplots_grid, filename = "winevars_ridgeplots.pdf")
+#   }
