@@ -106,9 +106,21 @@ get_stat <- function(file, task, learner, measure, digits = 3) {
   #   as_vector()
   
   y <- subset(x = df, subset = type == task & metric == measure & model == learner, select = "mean")
-  y <- round(y, 3)
+  y <- round(y, digits)
   return(y)
 }
+
+# a function to get the average stat across learners
+get_avg_stat <- function(file, task, learners = c("rf", "linear", "mlp", "svm")) {
+   
+  y <- sapply(X = learners, function(x) get_stat(file = "results_chemical_all.csv", task = "reg", learner = x, measure = "mse", digits = 3))
+  y <- mean(unlist(y))
+  y <- round(y, 3)
+  return(y)
+  
+}
+
+round(mean(unlist(sapply(X = c("rf", "linear", "mlp", "svm"), function(x) get_stat(file = "results_chemical_all.csv", task = "reg", learner = x, measure = "mse", digits = 3)))),3)
 
 # Get the parameters into lists for pmap
 
@@ -164,7 +176,7 @@ benchmarkplot(file = "results_unscaled_all.csv",
 ```
 
 
-The performance of the algorithms on the same task but with a reduced set of predictor variables can be seen in Figure \@ref(fig:regtask-results-fig2). The left-hand plot shows model performance (mean squared error) with wine colour as the only predictor. The right-hand plot shows results for physiochemical predictors only. Interestingly, all five algorithms have an almost identical, large, MSE (`r mean(sapply(X = c("rf", "linear", "mlp", "svm", "dummy"), function(x) get_stat(file = "results_color_all.csv", task = "reg", learner = x, measure = "mse", digits = 3)))`) for the wine colour only model, suggesting that wine colour alone is not a strong predictor of quality. In contrast, replacing wine colour with the physiochemical characteristics of a wine leads to differential performance across algorithms, and an average MSE of `r mean(sapply(X = c("rf", "linear", "mlp", "svm"), function(x) get_stat(file = "results_chemical_all.csv", task = "reg", learner = x, measure = "mse", digits = 3)))` for all algorithms excluding the dummy regressor, which had an unchanged performance.
+The performance of the algorithms on the same task but with a reduced set of predictor variables can be seen in Figure \@ref(fig:regtask-results-fig2). The left-hand plot shows model performance (mean squared error) with wine colour as the only predictor. The right-hand plot shows results for physiochemical predictors only. Interestingly, all five algorithms have an almost identical, large, MSE (`r get_avg_stat(file = "results_color_all.csv", task = "reg")`) for the wine colour only model, suggesting that wine colour alone is not a strong predictor of quality. In contrast, replacing wine colour with the physiochemical characteristics of a wine leads to differential performance across algorithms, and an average MSE of `r get_avg_stat(file = "results_chemical_all.csv", task = "reg")` for all algorithms excluding the dummy regressor, which had an unchanged performance.
 
 ```{r regtask-results-fig2, fig.cap="Benchmarking results - regression task with wine colour only (left) and physiochemical variables only (right)", fig.show='hold', out.width='50%'}
 
@@ -206,7 +218,7 @@ benchmarkplot(file = "results_unscaled_all.csv",
 
 ```
 
-The performance of the algorithms on the same task but with a reduced set of predictor variables can be seen in Figure \@ref(fig:clftask-results-fig2). The left-hand plot shows model accuracy with wine colour as the only predictor. The right-hand plot shows results for physiochemical predictors only. Interestingly, all algorithms except the dummy regressor achieve identical classification accuracy (`r mean(sapply(X = c("rf", "linear", "mlp", "svm", "dummy"), function(x) get_stat(file = "results_color_all.csv", task = "clf", learner = x, measure = "f1_score", digits = 3)))`) when using wine colour as the only model feature. As with the regression task, replacing wine colour with the physiochemical characteristics of a wine leads to differential performance across algorithms, and an average MSE of `r mean(sapply(X = c("rf", "linear", "mlp", "svm"), function(x) get_stat(file = "results_chemical_all.csv", task = "clf", learner = x, measure = "mse", digits = 3)))` for all algorithms excluding the dummy regressor, which was again unchanged.
+The performance of the algorithms on the same task but with a reduced set of predictor variables can be seen in Figure \@ref(fig:clftask-results-fig2). The left-hand plot shows model accuracy with wine colour as the only predictor. The right-hand plot shows results for physiochemical predictors only. Interestingly, all algorithms except the dummy regressor achieve identical classification accuracy (`r get_avg_stat(file = "results_color_all.csv", task = "clf")`) when using wine colour as the only model feature. As with the regression task, replacing wine colour with the physiochemical characteristics of a wine leads to differential performance across algorithms, and an average MSE of `r get_avg_stat(file = "results_chemical_all.csv", task = "clf")` for all algorithms excluding the dummy regressor, which was again unchanged.
 
 ```{r clftask-results-fig2, fig.cap="Benchmarking results - classification task with wine colour only (left) and physiochemical variables only (right)", fig.show='hold', out.width='50%'}
 
