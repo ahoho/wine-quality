@@ -260,7 +260,6 @@ def rf_feature_importances(model, labels):
   return pd.DataFrame(
     {'feature': labels, 'mean': importances_mean, 'sd': importances_sd})
 
-
 if __name__ == '__main__':
   data_fpath = './intermediate/wine_logged_unscaled.feather'
   
@@ -302,6 +301,39 @@ if __name__ == '__main__':
   rf_importances = rf_feature_importances(regressors['rf'], x_train.columns)
   rf_importances.to_csv('./output/rf_importances_all.csv', index=False)
 
-  # TODO:
-  # finish variance reduction/kfold
-  # determine linear regression coefficients (likely preerable to do in R)
+  # Superwine creation
+  lin = regressors['linear'].best_estimator_
+  svm = regressors['svm'].best_estimator_
+
+  # Obtain bounds of training data
+  feature_bounds = [(x_test[f].min(), x_test[f].max()) for f in x_train]
+
+  # Simulate a wine using the linear regression coefficients
+  simwine_lin = np.array([b[c > 0] for b, c in zip(feature_bounds, lin.coef_)])
+  simwine_lin = simwine_lin.reshape(1, -1)
+  
+  # Simulate a wine using by sampling until we get a wine "better than any one
+  # we have seen", based on the SVM
+  pred = 0
+  while pred < 10.0:
+    simwine_svm = np.array([np.random.uniform(*b) for b in feature_bounds])
+    simwine_svm = simwine_svm.reshape(1, -1)
+    # restrict the last feature, the color, to be red or white
+    simwine_svm[:, -1] = np.random.choice((0 , 1))
+    pred = svm.predict(simwine_svm)
+
+  # Save the two simulations, noting their performance on the models
+  simwines = pd.DataFrame(
+    {'linear': simwine_lin[0], 'svm': simwine_svm[0]}, index=x_train.columns)
+  simwines.to_csv('./output/simwine_data.csv')
+
+  simwine_preds = pd.DataFrame({
+    name: model.predict(np.vstack([simwine_lin, simwine_svm]))
+    for name, model in regressors.items()
+  }, index = ['linear', 'svm'])
+  simwine_preds.to_csv('./output/simwine_preds.csv')
+
+
+  
+
+  
