@@ -24,11 +24,10 @@ knitr::opts_chunk$set(echo = FALSE, cache = TRUE, fig.pos = "H")
 # Script to format benchmarking results tables #
 
 library(pacman)
-p_load(tidyverse, broom, knitr, stringr, here, purrr, kableExtra)
-
+p_load(tidyverse, magrittr, broom, knitr, stringr, here, purrr, kableExtra)
 
 # Function to make formatted benchmark results table
-benchmarktable <- function(file, task, measure, out = "latex") {
+benchmarktable <- function(file, task, measure) {
 
 df <- read.csv(file = here("output", file))
 capvars <- paste(str_split(str_remove(file, ".csv"), "_", simplify = TRUE)[3:2], collapse = " ")
@@ -36,7 +35,7 @@ capvars <- paste(str_split(str_remove(file, ".csv"), "_", simplify = TRUE)[3:2],
 df %>% 
   filter(type == task) %>% 
   filter(metric %in% measure) %>% 
-  select(-type,) %>%
+  select(-type) %>%
   mutate(metric = case_when(
     metric == "f1_score" ~ "Accuracy",
     TRUE ~ str_to_upper(metric)
@@ -48,7 +47,8 @@ df %>%
   rename_at(., vars(starts_with("m")), str_to_title) %>% 
   rename_at(., vars(ends_with("b")), str_to_upper) %>% 
   kable(digits = 4,
-        format = out,
+        booktabs = T,
+        format = "latex",
         caption = paste("Benchmarking", "results -", ifelse(task == "reg", "regression", "classification"), "task with", capvars, "variables")) %>% 
   kableExtra::row_spec(0, bold = TRUE) %>% 
   kableExtra::kable_styling(latex_options = "hold_position")
@@ -112,9 +112,11 @@ benchplotlist <-
 
 ```
 
-# Results of predictive benchmarking experiment
+# Results 
 
-## Regression task
+## Results of the predictive benchmarking experiment
+
+### Regression task
 
 The results of the predictive benchmarking experiment for the regression task can be seen in Table \@ref(tab:regtask-results-tab).
 
@@ -122,13 +124,13 @@ The results of the predictive benchmarking experiment for the regression task ca
 
 benchmarktable(file = "results_unscaled_all.csv", 
                task = "reg", 
-               measure = c("mse", "mae"), out = "latex")
+               measure = c("mse", "mae"))
 
 ```
 
-Figure \@ref(fig:regtask-results-fig) plots these results for each algorithm on the regression task.
+Figure \@ref(fig:regtask-results-fig) plots these results for each algorithm.
 
-```{r regtask-results-fig, fig.cap="Benchmarking results - regression task with all unscaled variables", out.width = '50%', fig.show = 'hold'}
+```{r regtask-results-fig, fig.cap="Benchmarking results - regression task with all variables", out.width = '50%', fig.show = 'hold'}
 
 benchmarkplot(file = "results_unscaled_all.csv", 
               task = "reg", 
@@ -141,8 +143,22 @@ benchmarkplot(file = "results_unscaled_all.csv",
 ```
 
 
+The performance of the algorithms on the same task but with a reduced set of predictor variables can be seen in Figure \@ref(fig:regtask-results-fig2). The left-hand plot shows model performance (mean squared error) with wine colour as the only predictor. The right-hand plot shows results for physiochemical predictors only.
 
-## Classification task
+```{r regtask-results-fig2, fig.cap="Benchmarking results - regression task with wine colour only (left) and physiochemical variables only (right)", out.width = '50%', fig.show = 'hold'}
+
+benchmarkplot(file = "results_color_all.csv", 
+              task = "reg", 
+              measure = "mse") 
+
+benchmarkplot(file = "results_chemical_all.csv", 
+              task = "reg", 
+              measure = "mse") 
+
+```
+
+
+### Classification task
 
 The results of the predictive benchmarking experiment for the classification task can be seen in Table \@ref(tab:clftask-results-tab).
 
@@ -150,14 +166,14 @@ The results of the predictive benchmarking experiment for the classification tas
 
 benchmarktable(file = "results_unscaled_all.csv", 
                task = "clf", 
-               measure = c("f1_score", "mae"), out = "latex")
+               measure = c("f1_score", "mae"))
 
 ```
 
 
-Figure \@ref(fig:clftask-results-fig) plots these results for each algorithm on the regression task.
+Figure \@ref(fig:clftask-results-fig) plots these results for each algorithm.
 
-```{r clftask-results-fig, fig.cap="Benchmarking results - classification task with all unscaled variables", out.width = '50%', fig.show = 'hold'}
+```{r clftask-results-fig, fig.cap="Benchmarking results - classification task with all variables", out.width = '50%', fig.show = 'hold'}
 
 benchmarkplot(file = "results_unscaled_all.csv", 
               task = "clf", 
@@ -168,3 +184,46 @@ benchmarkplot(file = "results_unscaled_all.csv",
               measure = "mae") 
 
 ```
+
+The performance of the algorithms on the same task but with a reduced set of predictor variables can be seen in Figure \@ref(fig:clftask-results-fig2). The left-hand plot shows model accuracy with wine colour as the only predictor. The right-hand plot shows results for physiochemical predictors only.
+
+```{r clftask-results-fig2, fig.cap="Benchmarking results - classification task with wine colour only (left) and physiochemical variables only (right)", out.width = '50%', fig.show = 'hold'}
+
+benchmarkplot(file = "results_color_all.csv", 
+              task = "clf", 
+              measure = "f1_score") 
+
+benchmarkplot(file = "results_chemical_all.csv", 
+              task = "clf", 
+              measure = "f1_score") 
+
+```
+
+### Important components of a "good" wine
+
+A useful characteristic of the random forest algorithm is its ability to determine the relative salience of the various features utilised during training. 
+
+```{r rf-impvar-results-tab}
+
+rf_impvar <- read.csv(here("output", "rf_importances_all.csv"))
+
+rf_impvar %>% 
+  mutate(feature = as.character(feature)) %>% 
+  mutate(feature = case_when(
+    feature == "pH" ~ "pH",
+    TRUE ~ Hmisc::capitalize(feature)
+  )) %>% 
+  kable(format = "latex", 
+        booktabs = T,
+        digits = 3, 
+        col.names = c("Feature", "Mean", "SD"), 
+        caption = "Relative feature importance in classifying wine quality")
+
+```
+
+
+Table \@ref(tab:rf-impvar-results-tab) shows the relative importance of each of the variables in the Wine Quality dataset with regards to its use in predicting wine quality. As can be seen, alcohol(vol%) is the most important feature, with a mean importance of `r round(rf_impvar[rf_impvar$feature == "alcohol", 2], 3)`, folowed by volatile acidity i.e. mass concentration of acetic acid (`r round(rf_impvar[rf_impvar$feature == "volatile acidity", 2], 3)` g/dm$^3$) and density (`r round(rf_impvar[rf_impvar$feature == "density", 2], 3)` g/cm$^3$). Fixed acidity (`r round(rf_impvar[rf_impvar$feature == "fixed acidity", 2], 3)` g/cm$^3$) and colour (`r round(rf_impvar[rf_impvar$feature == "color", 2], 3)` g/cm$^3$) are the least useful features, suggesting wines of both colours and across the range of mass concentrations of tartaric acid can be "good" wines (and "bad" wines).
+
+
+
+
