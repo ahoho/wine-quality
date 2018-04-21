@@ -1,7 +1,3 @@
-# Title: Making formatted benchmarking tables and plots
-# Author: Meenakshi Parameshwaran
-# Date: 20/04/18
-
 # Script to format benchmarking results tables #
 
 library(pacman)
