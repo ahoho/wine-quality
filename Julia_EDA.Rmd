@@ -1,0 +1,130 @@
+---
+title: "Wine"
+output: html_document
+---
+# Task A2
+
+```{r}
+reds <- read.csv("~/Desktop/Projects/winequality/winequality-red.csv", sep=";")
+whites <- read.csv("~/Desktop/Projects/winequality/winequality-white.csv", sep=";")
+
+num_reds = nrow(reds)
+print(num_reds)
+num_whites = nrow(whites)
+print(num_whites)
+
+wines <- rbind(reds, whites)
+num_features = ncol(wines)
+print(num_features)
+num_wines = nrow(wines)
+print(num_wines)
+
+color = c(rep("red", num_reds), rep("white", num_whites))
+wines = cbind(wines, color)
+num_features = num_features + 1
+
+wine_tier = rep(0, num_wines)
+for (i in 1:range(num_wines)){
+  if (wines$quality[i] > 5){
+    wine_tier[i] = "good"
+  }
+  if (wines$quality[i] <= 5){
+    wine_tier[i] = "bad"
+  }
+}
+wines = cbind(wines, wine_tier)
+print(head(wines))
+num_features = num_features + 1
+
+print(head(wines[wines$color == "red",]))
+table(wines[wines$color == "red",]$quality)
+table(wines[wines$color == "white",]$quality)
+```
+# Task A3
+
+## Should we use the log transformation? Yes.
+
+```{r}
+for (j in 1:range(num_features - 3)){
+  boxplot(wines[,j] ~ wines$color, main = "Without Log Transformation", ylab = colnames(wines)[j])
+  boxplot(log(wines[,j]) ~ wines$color, main = "With Log", ylab = colnames(wines)[j])
+}
+```
+## Any correlation between variables? Yes.
+
+```{r}
+all_pairs = combn(11,2)
+for (i in 1:ncol(all_pairs)){
+  if (cor(wines[,all_pairs[1,i]], wines[,all_pairs[2,i]]) > 0.5){
+    print(cor(wines[,all_pairs[1,i]], wines[,all_pairs[2,i]]))
+    plot(wines[,all_pairs[1,i]] ~ wines[,all_pairs[2,i]], ylab = colnames(wines)[all_pairs[1,i]], xlab = colnames(wines)[all_pairs[2,i]])
+  }
+}
+
+random_indices = sample(11, 5)
+pairs(wines[,random_indices])
+```
+
+## How do features vary by color? How do features vary by quality?
+
+```{r}
+for (j in 1:range(num_features - 3)){
+  
+  biggest_diff = 1
+  if (wilcox.test(wines[,j] ~ wines$color)$p.value < .01){
+    if (wilcox.test(wines[,j] ~ wines$color)$p.value < biggest_diff){
+      biggest_diff = wilcox.test(wines[,j] ~ wines$color)$p.value
+      relevant_feature_for_color = colnames(wines)[j]
+    }
+    boxplot(wines[,j] ~ wines$color)
+    title(colnames(wines)[j])
+  }
+  
+  biggest_diff_tier = 1
+  if (wilcox.test(wines[,j][wines$wine_tier == "bad"], wines[,j][wines$wine_tier == "good"])$p.value < .01){
+    if (wilcox.test(wines[,j][wines$wine_tier == "bad"], wines[,j][wines$wine_tier == "good"])$p.value < biggest_diff_tier){
+      biggest_diff_tier = wilcox.test(wines[,j][wines$wine_tier == "bad"], wines[,j][wines$wine_tier == "good"])$p.value
+      relevant_feature_for_tier = colnames(wines)[j]
+    }
+    boxplot(wines[,j] ~ wines$wine_tier)
+    title(colnames(wines)[j])
+  }  
+  
+
+}
+
+print(relevant_feature_for_color)
+print(relevant_feature_for_tier)
+```
+
+```{r}
+hist(wines$quality)
+table(wines$quality)
+
+hist(wines[wines$color == "red", ]$quality)
+table(wines[wines$color == "red", ]$quality)
+
+hist(wines[wines$color == "white", ]$quality)
+table(wines[wines$color == "white", ]$quality)
+
+nrow(wines[wines$color == "red" & wines$quality > 5, ]) / nrow(wines[wines$color == "red", ])
+nrow(wines[wines$color == "white" & wines$quality > 5, ]) / nrow(wines[wines$color == "white", ])
+
+for (k in 1:14){
+  print(colnames(wines)[k])
+  print(summary(wines[,k]))
+  print("")
+}
+  
+hist(wines$citric.acid)
+table(wines$citric.acid)
+
+hist(wines$residual.sugar)
+table(wines$residual.sugar)
+
+hist(wines$chlorides)
+table(wines$chlorides)
+
+hist(wines$sulphates)
+table(wines$sulphates)
+```
