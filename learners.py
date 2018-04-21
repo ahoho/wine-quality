@@ -19,7 +19,8 @@ from sklearn.utils import resample
 
 TRAIN_MODELS = False # set to true to train our models
 
-def gen_data(data_fpath, test_size=0.2, random_state=1234, features_to_drop=[]):
+def gen_data(data_fpath, test_size=0.2, random_state=1234, 
+             features_to_drop=[], features_to_keep=[]):
   """
   Generate train and test data, optionally dropping features
   """
@@ -28,6 +29,8 @@ def gen_data(data_fpath, test_size=0.2, random_state=1234, features_to_drop=[]):
 
   # split into x and y data
   x = wine.drop(['quality'] + features_to_drop, axis=1)
+  if features_to_keep:
+      x = x[features_to_keep]
   y = wine.quality
 
   # split into train and test
@@ -269,11 +272,17 @@ if __name__ == '__main__':
   x_train, x_test, y_train, y_test = gen_data(data_fpath)
   # color only
   x_train_col, x_test_col, y_train_col, y_test_col = gen_data(
-    data_fpath, features_to_drop=[c for c in x_train.columns if c != 'color'])
+    data_fpath, features_to_keep=['color'])
   # chemicals only
   x_train_chm, x_test_chm, y_train_chm, y_test_chm = gen_data(
     data_fpath, features_to_drop=['color'])
+  # "early" varaibles that enable early detection
+  x_train_sup, x_test_sup, y_train_sup, y_test_sup = gen_data(
+    data_fpath, features_to_keep=[
+    'color', 'fixed acidity', 'citric acid', 'residual sugar', 'chlorides'
+  ])
 
+  
   ## Training
   if TRAIN_MODELS:
     # train on all data
@@ -284,16 +293,22 @@ if __name__ == '__main__':
 
     # train on chemicals, no color
     train('unscaled-chemical', x_train_chm, y_train_chm)
+    
+    # train on early-detection variables
+    train('unscaled-superhuman', x_train_sup, y_train_sup)
 
+     
   ## Evaluation
   results_all = evaluate_models('unscaled', x_test, y_test)
   results_col = evaluate_models('unscaled-color', x_test_col, y_test_col)
   results_chm = evaluate_models('unscaled-chemical', x_test_chm, y_test_chm)
+  results_sup = evaluate_models('unscaled-superhuman', x_test_sup, y_test_sup)
 
   #save 
   results_all.to_csv('./output/results_unscaled_all.csv', index=False)
   results_col.to_csv('./output/results_color_all.csv', index=False)
   results_chm.to_csv('./output/results_chemical_all.csv', index=False)
+  results_sup.to_csv('./output/results_superhuman_all.csv', index=False)
 
   ## Model-specific results
   regressors, classifiers = load_models('unscaled')
@@ -332,8 +347,3 @@ if __name__ == '__main__':
     for name, model in regressors.items()
   }, index = ['linear', 'svm'])
   simwine_preds.to_csv('./output/simwine_preds.csv')
-
-
-  
-
-  
