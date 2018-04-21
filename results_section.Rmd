@@ -17,14 +17,17 @@ header-includes:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, cache = TRUE, fig.pos = "H")
+knitr::opts_chunk$set(echo = FALSE, cache = TRUE, include = FALSE, fig.pos = "H")
 ```
 
-```{r make_benchmark_outputs, include=FALSE}
-# Script to format benchmarking results tables #
-
+```{r loadpkgs, include=FALSE}
 library(pacman)
-p_load(tidyverse, magrittr, broom, knitr, stringr, here, purrr, kableExtra)
+p_load(tidyverse, broom, knitr, stringr, here, purrr, kableExtra)
+p_load(magrittr)
+```
+
+
+```{r make_benchmark_outputs, include=FALSE}
 
 # Function to make formatted benchmark results table
 benchmarktable <- function(file, task, measure) {
@@ -88,6 +91,21 @@ benchmarkplot <- function(file, task, measure) {
   #   theme(plot.title = element_text(size = 10))
 }
 
+# a function to get the stat I want
+get_stat <- function(file, task, learner, measure, digits = 3) {
+  
+  df <- read.csv(file = here::here("output", file))
+
+  df %>% 
+    filter(type == task) %>% 
+    filter(metric == measure) %>% 
+    filter(model == learner) %>% 
+    select(mean) %>% 
+    round(3) %>% 
+    as_vector()
+  
+}
+
 # Get the parameters into lists for pmap
 
 files <- c("results_unscaled_all.csv", "results_chemical_all.csv", "results_color_all.csv")
@@ -118,19 +136,18 @@ benchplotlist <-
 
 ### Regression task
 
-The results of the predictive benchmarking experiment for the regression task can be seen in Table \@ref(tab:regtask-results-tab).
+The results of the predictive benchmarking experiment for the regression task can be seen in Table \@ref(tab:regtask-results-tab). The random forest algorithm is the best performer on both metrics under consideration for the regression task, achieving a mean squared error of `r get_stat(file = "results_unscaled_all.csv", task = "reg", learner = "rf", measure = "mse")` and a mean absolute error of `r get_stat(file = "results_unscaled_all.csv", task = "reg", learner = "rf", measure = "mae")`. For comparison, the dummy regressor achieved a mean squared error of `r get_stat(file = "results_unscaled_all.csv", task = "reg", learner = "dummy", measure = "mse")` and a mean absolute error of `r get_stat(file = "results_unscaled_all.csv", task = "reg", learner = "dummy", measure = "mae")`. On the MSE metric, the SVM is the next best performer, followed by the linear model, the MLP, and finally the dummy regressor.
 
-```{r regtask-results-tab}
+```{r regtask-results-tab, echo=FALSE}
 
 benchmarktable(file = "results_unscaled_all.csv", 
                task = "reg", 
                measure = c("mse", "mae"))
-
 ```
 
 Figure \@ref(fig:regtask-results-fig) plots these results for each algorithm.
 
-```{r regtask-results-fig, fig.cap="Benchmarking results - regression task with all variables", out.width = '50%', fig.show = 'hold'}
+```{r regtask-results-fig, echo=FALSE, fig.cap="Benchmarking results - regression task with all variables", fig.show=, out.width='50%'}
 
 benchmarkplot(file = "results_unscaled_all.csv", 
               task = "reg", 
@@ -143,9 +160,9 @@ benchmarkplot(file = "results_unscaled_all.csv",
 ```
 
 
-The performance of the algorithms on the same task but with a reduced set of predictor variables can be seen in Figure \@ref(fig:regtask-results-fig2). The left-hand plot shows model performance (mean squared error) with wine colour as the only predictor. The right-hand plot shows results for physiochemical predictors only.
+The performance of the algorithms on the same task but with a reduced set of predictor variables can be seen in Figure \@ref(fig:regtask-results-fig2). The left-hand plot shows model performance (mean squared error) with wine colour as the only predictor. The right-hand plot shows results for physiochemical predictors only. Interestingly, all five algorithms have an almost identical, large, MSE (`r mean(sapply(X = c("rf", "linear", "mlp", "svm", "dummy"), function(x) get_stat(file = "results_color_all.csv", task = "reg", learner = x, measure = "mse", digits = 3)))`) for the wine colour only model, suggesting that wine colour alone is not a strong predictor of quality. In contrast, replacing wine colour with the physiochemical characteristics of a wine leads to differential performance across algorithms, and an average MSE of `r mean(sapply(X = c("rf", "linear", "mlp", "svm"), function(x) get_stat(file = "results_chemical_all.csv", task = "reg", learner = x, measure = "mse", digits = 3)))` for all algorithms excluding the dummy regressor, which had an unchanged performance.
 
-```{r regtask-results-fig2, fig.cap="Benchmarking results - regression task with wine colour only (left) and physiochemical variables only (right)", out.width = '50%', fig.show = 'hold'}
+```{r regtask-results-fig2, echo=FALSE, fig.cap="Benchmarking results - regression task with wine colour only (left) and physiochemical variables only (right)", fig.show=, out.width='50%'}
 
 benchmarkplot(file = "results_color_all.csv", 
               task = "reg", 
@@ -160,9 +177,9 @@ benchmarkplot(file = "results_chemical_all.csv",
 
 ### Classification task
 
-The results of the predictive benchmarking experiment for the classification task can be seen in Table \@ref(tab:clftask-results-tab).
+The results of the predictive benchmarking experiment for the classification task can be seen in Table \@ref(tab:clftask-results-tab). As with the regression task, the random forest model was again the best performer, achieving classification accuracy of `r get_stat(file = "results_unscaled_all.csv", task = "clf", learner = "rf", measure = "f1_score")` and a mean absolute error `r get_stat(file = "results_unscaled_all.csv", task = "clf", learner = "rf", measure = "mae")`. For comparison, the dummy regressor achieved a classification accuracy of `r get_stat(file = "results_unscaled_all.csv", task = "clf", learner = "dummy", measure = "f1_score")` and a mean absolute error `r get_stat(file = "results_unscaled_all.csv", task = "clf", learner = "dummy", measure = "mae")`. The ranking of algorithms by classification accuracy was the same as for the regressio task, with the SVM following the RF, then the linear model, the MLP, and the dummy regressor in fifth position.
 
-```{r clftask-results-tab}
+```{r clftask-results-tab, echo=FALSE}
 
 benchmarktable(file = "results_unscaled_all.csv", 
                task = "clf", 
@@ -173,7 +190,7 @@ benchmarktable(file = "results_unscaled_all.csv",
 
 Figure \@ref(fig:clftask-results-fig) plots these results for each algorithm.
 
-```{r clftask-results-fig, fig.cap="Benchmarking results - classification task with all variables", out.width = '50%', fig.show = 'hold'}
+```{r clftask-results-fig, echo=FALSE, fig.cap="Benchmarking results - classification task with all variables", fig.show=, out.width='50%'}
 
 benchmarkplot(file = "results_unscaled_all.csv", 
               task = "clf", 
@@ -185,9 +202,9 @@ benchmarkplot(file = "results_unscaled_all.csv",
 
 ```
 
-The performance of the algorithms on the same task but with a reduced set of predictor variables can be seen in Figure \@ref(fig:clftask-results-fig2). The left-hand plot shows model accuracy with wine colour as the only predictor. The right-hand plot shows results for physiochemical predictors only.
+The performance of the algorithms on the same task but with a reduced set of predictor variables can be seen in Figure \@ref(fig:clftask-results-fig2). The left-hand plot shows model accuracy with wine colour as the only predictor. The right-hand plot shows results for physiochemical predictors only. Interestingly, all algorithms except the dummy regressor achieve identical classification accuracy (`r mean(sapply(X = c("rf", "linear", "mlp", "svm", "dummy"), function(x) get_stat(file = "results_color_all.csv", task = "clf", learner = x, measure = "f1_score", digits = 3)))`) when using wine colour as the only model feature. As with the regression task, replacing wine colour with the physiochemical characteristics of a wine leads to differential performance across algorithms, and an average MSE of `r mean(sapply(X = c("rf", "linear", "mlp", "svm"), function(x) get_stat(file = "results_chemical_all.csv", task = "clf", learner = x, measure = "mse", digits = 3)))` for all algorithms excluding the dummy regressor, which was again unchanged.
 
-```{r clftask-results-fig2, fig.cap="Benchmarking results - classification task with wine colour only (left) and physiochemical variables only (right)", out.width = '50%', fig.show = 'hold'}
+```{r clftask-results-fig2, echo=FALSE, fig.cap="Benchmarking results - classification task with wine colour only (left) and physiochemical variables only (right)", fig.show=, out.width='50%'}
 
 benchmarkplot(file = "results_color_all.csv", 
               task = "clf", 
@@ -199,11 +216,11 @@ benchmarkplot(file = "results_chemical_all.csv",
 
 ```
 
-### Important components of a "good" wine
+## Important components of a "good" wine
 
 A useful characteristic of the random forest algorithm is its ability to determine the relative salience of the various features utilised during training. 
 
-```{r rf-impvar-results-tab}
+```{r rf-impvar-results-tab, echo=FALSE}
 
 rf_impvar <- read.csv(here("output", "rf_importances_all.csv"))
 
@@ -221,9 +238,22 @@ rf_impvar %>%
 
 ```
 
+```{r rf_impvar_get_stat, include=FALSE}
 
-Table \@ref(tab:rf-impvar-results-tab) shows the relative importance of each of the variables in the Wine Quality dataset with regards to its use in predicting wine quality. As can be seen, alcohol(vol%) is the most important feature, with a mean importance of `r round(rf_impvar[rf_impvar$feature == "alcohol", 2], 3)`, folowed by volatile acidity i.e. mass concentration of acetic acid (`r round(rf_impvar[rf_impvar$feature == "volatile acidity", 2], 3)` g/dm$^3$) and density (`r round(rf_impvar[rf_impvar$feature == "density", 2], 3)` g/cm$^3$). Fixed acidity (`r round(rf_impvar[rf_impvar$feature == "fixed acidity", 2], 3)` g/cm$^3$) and colour (`r round(rf_impvar[rf_impvar$feature == "color", 2], 3)` g/cm$^3$) are the least useful features, suggesting wines of both colours and across the range of mass concentrations of tartaric acid can be "good" wines (and "bad" wines).
+# a function to get key stats from the RF importance table
+
+rf_get_stat <- function(feat) {
+  
+  rf_impvar <- read.csv(here::here("output", "rf_importances_all.csv"))
+
+  rf_impvar %>% 
+    filter(feature == feat) %>% 
+    select(mean) %>% 
+    round(3) %>% 
+    as_vector()
+}
+
+```
 
 
-
-
+Table \@ref(tab:rf-impvar-results-tab) shows the relative importance of each of the variables in the Wine Quality dataset with regards to its use in predicting wine quality. As can be seen, alcohol(vol%) is the most important feature, with a mean importance of `r rf_get_stat("alcohol")`, folowed by volatile acidity i.e. mass concentration of acetic acid (`r rf_get_stat("volatile acidity")`) and density (`r rf_get_stat("density")`). Fixed acidity (`r rf_get_stat("fixed acidity")`) and colour (`r rf_get_stat("color")`) are the least useful features, suggesting wines of both colours and across the range of mass concentrations of tartaric acid can be "good" wines (and "bad" wines).
