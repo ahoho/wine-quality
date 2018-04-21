@@ -1,0 +1,84 @@
+---
+title: "Linear regression findings"
+output: bookdown::pdf_document2
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, include = FALSE, cache = TRUE)
+```
+
+```{r calculate_linear_reg, eval=FALSE, include=FALSE}
+
+# This script loads the scaled and logged dataset, performs the same train-test split as in learners.py, then fits simple linear and logistic regression models. It outputs formatted regression tables in latex.
+
+# load packages
+library(pacman)
+p_load(tidyverse, here, broom, knitr, reticulate, feather)
+
+# use python 3
+pypath = "/Applications/anaconda/bin/python3.6"
+condapath = "/Applications/anaconda/bin/conda"
+conda_py3env = "py-env"
+
+#use_python(python = pypath)
+use_condaenv(condaenv = conda_py3env , conda = condapath)
+
+# set seed
+py_set_seed(1234)
+
+# run the data generating code
+py_run_file("gen_data_train_test.py")
+
+# now back to R - the train and test objects exist in R using py$
+
+# create the training set wine object by combining the x_train and y_train objects
+wine <- cbind(py$x_train, py$y_train)
+wine$quality <- wine$`py$y_train`
+wine$`py$y_train` <- NULL
+
+# write out a feather file to make it easier to load
+feather::write_feather(x = wine, path = here::here("intermediate", "wine_logged_scaled_train.feather"))
+
+```
+
+## What makes a wine a good wine
+
+In order to understand what makes a wine a good, we ran a simple linear regression model. All physiochemical variables were transformed to the log scale to capture the law of mass action being linear in log-concentration coordinates. Variables were additionally standardised to facilitate the interpretation of coefficients.
+
+```{r linear-reg-tab, echo=FALSE, include=TRUE}
+
+# load packages
+library(pacman)
+p_load(tidyverse, here, broom, knitr, reticulate, feather)
+
+# read in data
+wine <- feather::read_feather(path = here::here("intermediate", "wine_logged_scaled_train.feather"))
+
+# run a linear model on mean-centered data and output to kable
+res <- wine %>% 
+  do(tidy(lm(quality ~ ., data = .))) 
+
+res %>% 
+    mutate(term = stringr::str_replace_all(term, "`", "")) %>% 
+    mutate(term = case_when(
+      term == "(Intercept)" ~ "Intercept",
+      term != "pH" ~ Hmisc::capitalize(term),
+      TRUE ~ "pH"
+    )) %>% 
+    rename(Variable = term, 
+           Estimate = estimate, 
+           SE = std.error, 
+           Statistic = statistic,
+           `p-value` = p.value) %>% 
+    kable(caption = "Linear model - logged and scaled training data", 
+          format = "latex",
+          booktabs = T,
+          digits = 3) %>% 
+  kableExtra::row_spec(0, bold = TRUE) %>% 
+  kableExtra::kable_styling(latex_options = "hold_position") 
+
+```
+
+
+
+Table \@ref(tab:linear-reg-tab) shows how each feature was associated with wine quality. With all other variables held constant, the mean wine quality score was `r round(res[res$term == "(Intercept)", ]$estimate,1)`. All variables were significantly associated with wine quality except for citric acid. In terms of features associated with a good wine, we found relatively larger, positive coefficients from the alcohol volume, colour (red), and residual sugar measures. Notably negative coefficients were present for volatile acidity (the mass concentration of acetic acid, g/dm$^3$), density, and mass concentration of total sulfar dioxide (mg/dm$^3$). This suggested that wines with higher alcohol volume, higher residual sugar, and red wines typically had higher quality scores, whilst wines with higher volatile acidity, higher density, and a greater concentration of total sulfur dioxide typically had lower quality scores, holding all else constant. Whether these features completely capture what makes a wine a "good" wine is debatable however, especially in the simple linear context. Additional evidence comes from looking at the relative importance of features identified by the random forest algorithm.
