@@ -1,7 +1,3 @@
-# Title: Code for making ridgeplots only
-# Author: Meenakshi Parameshwaran
-# Date: 20/04/18
-
 # An older version of the code #
 
 # Load packages
