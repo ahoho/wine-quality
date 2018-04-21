@@ -9,11 +9,13 @@ header-includes:
    - \rhead{16035918, 16044460, 17107203}
    - \rfoot{Page \thepage}
 date: "`r format(Sys.time(), '%d %B, %Y')`"
-output: pdf_document
+output: 
+  pdf_document:
+    number_sections: true
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, include = FALSE, cache = TRUE, cache.lazy = FALSE)
 ```
 
 # Data Transformation and Exploration
@@ -209,7 +211,7 @@ wine <-
 ```{r explore}
 
 # get some summaries of the transformed data
-view(summarytools::dfSummary(wine))
+summarytools::dfSummary(wine)
 # some data still looks pretty skewed, even after a log transform and standardising
 
 # distribution of wine quality as a factor
@@ -316,7 +318,7 @@ wine$cluster <- NULL
 
 # Training Learners
 ## Save data
-```{r save-data}
+```{r save-data, eval=FALSE, include=FALSE}
 # save the data in binary format for python interoperability
 write_feather(wine, './intermediate/wine_logged_scaled.feather')
 origwine %>%
@@ -325,6 +327,6 @@ origwine %>%
   write_feather('./intermediate/wine_logged_unscaled.feather')
 ```
 
-```{python setup, engine.path='C:/Miniconda3/envs/py36/python.exe'}
+```{python, engine.path='C:/Miniconda3/envs/py36/python.exe'}
 # for now, included in learners.py
 ```
