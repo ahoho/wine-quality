@@ -312,9 +312,13 @@ wine %>%
   ggtitle('Variable Histograms')
 ```
 
-To correct for the skew, we consider log-transforming the predictors. The box-and-whisker plots (below) show how the log-transformations even out the distributions of individual variables. However, we decide to keep the variables untransformed in order to retain the interpretability of our models. [Also: cite something stating how concentration is usually log-scaled? https://www.ncbi.nlm.nih.gov/pubmed/7595977 is for blood, but could be useful. https://stats.stackexchange.com/a/48465/80111 has another good intuition]
+To correct for the skew, we consider log-transforming the predictors. The box-and-whisker plot (below) shows how the log-transformation has the potential to even out the distributions of individual variables. Additionally, research has demonstrated that log transformations tend to help stabilize the variance of variables pertaining to concentration data [Cite: https://www.ncbi.nlm.nih.gov/pubmed/7595977]. However, we decide to keep the variables untransformed in order to retain the interpretability of our models. 
 
-<a few box-and-whisker plots of variables before and after taking log>
+```{r}
+par(mfrow=c(1,2))
+boxplot(wine$chlorides ~ wine$color, main = "Without Log Transformation", ylab = "chlorides", names = c("white", "red"), col=c('mintcream', 'mistyrose'))
+boxplot(log(wine$chlorides) ~ wine$color, main = "With Log", ylab = "chlorides", names = c("white", "red"), col=c('mintcream', 'mistyrose'))
+```
 
 ```{r variable_transformations}
 # Do we need to convert the concentrations that are mg/dm3 compared to those that are g/dm3?
