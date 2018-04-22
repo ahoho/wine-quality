@@ -565,7 +565,7 @@ benchmarkplot <- function(file, task, measure) {
     ggplot(aes(Model, Mean, fill = Model)) +
     geom_bar(stat='identity') +
     scale_fill_brewer(type = 'qual', palette = 4) +
-    geom_errorbar(aes(ymin = Mean-LB, ymax = Mean+UB),
+    geom_errorbar(aes(ymin = LB, ymax = UB),
                    position = position_dodge(), width=0.3) +
     theme(legend.position = "none") +
     xlab(paste("Mean", fmeasure)) +
