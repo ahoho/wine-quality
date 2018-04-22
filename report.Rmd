@@ -8,14 +8,27 @@ header-includes:
    - \fancyhf{}
    - \rhead{16035918, 16044460, 17107203}
    - \rfoot{Page \thepage}
+   - \usepackage{booktabs}
+   - \usepackage{longtable}
+   - \usepackage{array}
+   - \usepackage{multirow}
+   - \usepackage[table]{xcolor}
+   - \usepackage{wrapfig}
+   - \usepackage{float}
+   - \usepackage{colortbl}
+   - \usepackage{pdflscape}
+   - \usepackage{tabu}
+   - \usepackage{threeparttable}
+   - \usepackage[normalem]{ulem}
 date: "`r format(Sys.time(), '%d %B, %Y')`"
-output: 
-  pdf_document:
+output:
+  bookdown::pdf_document2:
     number_sections: true
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, include = FALSE, cache = TRUE, cache.lazy = FALSE)
+knitr::opts_chunk$set(echo = FALSE, #cache = TRUE, cache.lazy = FALSE,
+                      fig.pos = "H")
 ```
 
 ```{r load_pkgs, message=FALSE, warning=FALSE}
@@ -28,10 +41,9 @@ if(!require("pacman")) {
 # load the tidyverse, joyplots (now in ggridges) for plots,
 # magrittr for pipes, summarytools for descriptives
 pacman::p_load(
-  tidyverse, ggridges, magrittr, summarytools, GGally, mclust, feather)
-# load the ML libraries needed for benchmarking
-pacman::p_load(mlr, kernlab, h2o)
-
+  tidyverse, ggridges, magrittr, summarytools,
+  GGally, mclust, feather, reticulate, purrr, here, stringr,
+  kableExtra, broom, knitr)
 ```
 
 ```{r load_data, message=FALSE}
@@ -102,7 +114,7 @@ The first question we consider is whether we can use the dataset to create an AI
 
 Second, we would like to determine which components of wine constitute a wine a good wine. In order to empirically analyze this question, we define a "good" wine as a wine which is rated highly (above 5) by the sommeliers in our dataset. In theory, we could also identify wines considered "good" by individuals of a specific demographic (eg, young consumers in eastern Europe), but this would require additional data, so we will instead focus on finding the components of wine that are associated with high ratings from sommeliers. The simplest way to scientifically investigate this question is to analyze correlation plots between wine quality and individual variables from the wine dataset. Similarly, we can look at the coefficients in a linear regression model to see how much an increase in the value of a particular variable will increase the predicted rating, conditioned on the other variables. We can additionally use a two-sample t-test to determine whether the mean of a variable is statistically different among good wines and bad wines, comparing the distributions of the variable when the data is partitioned between the two groups. Each of these methods will provide new insight into which components are associated with higher ratings. There may be additional components of wine outside the scope of our dataset which serve as important indicators of quality, but we would need additional data to investigate this possibility.
 
-Next, we would like to assess whether we can create a "perfect" wine whose quality exceeds that which we have seen in our data. In order to conceive a grade 10 wine, Delicious AI would have to extrapolate beyond the labels and combinations of predictors seen in the training data, so it is difficult to guarantee that the model would be valid for these new ranges of the variables. We have no reason to believe that the assumptions made by the models will hold for a novel combination of chemicals, nor do we make any claims that such a combination is physically possible or safe for human consumption. [We must also assume that the dataset contains all the relevant variables necessary to produce a high-grade wine.] Despite the lack of performance guarantees, we can still use Delicious AI for creative inspiration, identifying which novel combinations of variables Delicious AI would expect to produce a perfect wine. We will use a support vector machine (SVM) and linear regression model to produce two possible "super-wines", since they are both capable of predicting values beyond the range of data used in training. For the linear regression model, we can set the regression model equal to 10 and find a solution for the predictor variables, restricting the values of the predictors to the range observed in the training data to ensure we obtain a feasible wine. For the SVM, we can randomly sample values for each predictor (within the range of the training data) and feed the artificial wine into the SVM, stopping when we achieve a rating above 9. In this way, Delicious AI can suggest new combinations of features that wine producers may not have otherwise considered. [place technical details later?]
+Next, we would like to assess whether we can create a "perfect" wine whose quality exceeds that which we have seen in our data. In order to conceive a grade 10 wine, Delicious AI would have to extrapolate beyond the labels and combinations of predictors seen in the training data, so it is difficult to guarantee that the model would be valid for these new ranges of the variables. We have no reason to believe that the assumptions made by the models will hold for a novel combination of chemicals, nor do we make any claims that such a combination is physically possible or safe for human consumption. [We must also assume that the dataset contains all the relevant variables necessary to produce a high-grade wine.] Despite the lack of performance guarantees, we can still use Delicious AI for creative inspiration, identifying which novel combinations of variables Delicious AI would expect to produce a perfect wine. In this way, Delicious AI can suggest new combinations of features that wine producers may not have otherwise considered.
 
 Finally, we consider a question raised by a philosopher of ethics - is the human perception of wine quality so subjective that there is no empirically verifiable correlate of good and bad wine? This is a perfectly reasonable question to ask, considering that new sommeliers are trained to match the opinions of existing sommeliers, so human biases could easily perpetuate for generations. This consideration aside, in theory, the blind-tasting of the wines should have mitigated the influence of factors exogenous to the wines themselves. It would be helpful to know the variance of ratings for each wine and how consistently human sommeliers rate the same wine. For example, would a sommelier rate a wine differently if it were presented in a different bottle? We would need to conduct an experiment to answer these questions. However, we can still use the dataset for insight into whether wines rated highly tend to have a different set of features than wines rated poorly. We can again look at the variable distributions and use a two-sample t-test to determine whether the mean of a predictor is different among good and bad wines. We can also see how accurately Delicious AI can predict wine ratings from the features alone. A high prediction accuracy will at least confirm that the ratings among sommeliers are not random and correspond to empirically verifiable differences in wine components. Of course, Delicious AI is only trained to approximate *expert* opinion, which is not necessarily an objective measure of wine quality and may differ from individual preferences or the preferences of the general wine-drinking public. But this is still valuable because expert opinion tends to drive market prices, and we can always train Delicious AI on different data in order to predict individual or demographically relevant ratings. Similarly, with additional data we Delicious AI could predict external metrics such as quantity sold or awards recieved.
         
@@ -210,20 +222,22 @@ wine_summary <-
   
   # summary statistics by color
   # perhaps a little cleaner to look overall?
-  group_by(color) %>%
+  # group_by(color) %>%
   summarize_all(
     funs(min, q025, median,  mean, q075, max, sd)
   ) %>%
   
   # transform data
-  gather(... = -color) %>%
+  # gather(... = -color) %>%
+  gather %>%
   separate(key, into = c('Variable', 'statistic'), sep = '_') %>%
   spread(key = statistic, value = value)
 
 # order variables with highest variation (after rescaling)
 variable_var <-
   wine %>%
-  select(-quality, -color) %>%
+  select(#-color,
+         -quality) %>%
   # min-max scale the data
   mutate_all(funs(. / (max(.) - min(.)))) %>%
   # take variances
@@ -234,10 +248,10 @@ variable_var <-
 
 # make beautiful
 wine_summary %>%
-  recode_color %>%
+  # recode_color %>%
   select(
-    Color=color, 
     Variable,
+    # Color=color,
     Min = min,
     `1st Quantile` = q025,
     Median = median,
@@ -247,7 +261,12 @@ wine_summary %>%
     `S.D.`=sd
   ) %>%
   arrange(Variable) %>%
-  knitr::kable(format='latex')
+  kable(format = "latex", 
+        booktabs = T,
+        digits = 3,
+        caption = "Summary of Wine Data") %>% 
+  kableExtra::row_spec(0, bold = TRUE) %>% 
+  kableExtra::kable_styling(latex_options = "hold_position")
 ```
 
 <Correlations>
@@ -328,7 +347,8 @@ A series of matrix plots do not suggest that there are any non-linear relationsh
 ```{r pairs-plot, message=FALSE}
 # pairs plot of the n variables with the greatest variance
 n <- 5
-wine %>%
+p <-  
+  wine %>%
   recode_color %>%
   ggpairs(
     mapping=aes(color=color, alpha=0.4),
@@ -339,56 +359,22 @@ wine %>%
     # if we want n variables with greatest variance, change to
     # variable_var$key[1:n]
   )
-```
+for(i in 1:p$nrow) {
+  for(j in 1:p$ncol){
+    p[i,j] <- p[i,j] + 
+      scale_color_manual(values = c("Red" = "#E31A1C", "White" = "#33A02C")) +
+      scale_fill_manual(values = c("Red" = "#E31A1C", "White" = "#33A02C"))
+  }
+}
 
-
-We also try clustering and observe  __ 
-
-<cluster graphs>
-```{r kmeans}
-## do clusgap (takes a while)
-## also look at mclust/hclust
-## look at pairs plot
-## look at sulfates v quality, clusters v sulfates, quality v clusters
-## scale as well
-## consider looking at ARI/ASW
-
-mclust_results <-
-  select(wine, -quality, -color) %>%
-  Mclust(1:15)
-```
-
-```{r plot-clustering}
-wine$cluster <- factor(mclust_results$classification)
-
-# do we observe clearly-delineated clusters?
-wine %>%
-  ggpairs(
-      mapping = aes(color = cluster, alpha = 0.4),
-      columns = c(variable_var$key[1:n])
-  )
-  
-# do they divide up quality in any meaningful way?
-# not especially! perhaps this isn't the most salient feature
-wine %>%
-  ggplot(aes(x = quality)) +
-  geom_bar(aes(fill = cluster))
-  
-# also examine relationship to color
-wine %>%
-  recode_color %>%
-  ggplot(aes(x = color)) +
-  geom_bar(aes(fill = cluster))
-
-# remove cluster variable
-wine$cluster <- NULL
+p
 ```
 
 Next, we consider how wine color affects the variables. There are 4898 white wines and 1599 red wines. White wines tend to have a higher rating. 66% of white wines are rated above 5 and five white wines are rated 9, while only 53% of red wines are rated above 5 and none of them receive a rating of 9. To visualize the differences, we consider the distribution of each variable, partitioned by the discrete integer-valued ratings and wine color (below). Some of the density plots are based on a small number of samples - only 10 red wines and 20 white wines are rated 3, and only 18 red wines are rated 8. We therefore focus our analysis on the distributions corresponding to ratings between 4 and 7, which both have over 50 examples for each color. 
 
 <Meena plots>
 [NB: unscaled data!]
-```{r plots}
+```{r plots, message=FALSE, warning=FALSE}
 # ridge plot function
 ridgeplot <- function(winevar) {
     origwine %>%
@@ -446,13 +432,467 @@ origwine %>%
             .funs = log1p) %>%
   write_feather('./intermediate/wine_logged_unscaled.feather')
 ```
-[Need to add in this chunk: python, engine.path='C:/Miniconda3/envs/py36/python.exe' for now, included in learners.py]
 
-The results of the predictive benchmarking experiment can be seen in Table [X].
+```{python load-data, engine.path='C:/Miniconda3/envs/py36/python.exe', eval=FALSE}
+data_fpath = './intermediate/wine_logged_unscaled.feather'
+  
+## Data Collection 
+# all functions below maintain same train-test split
+# all data
+x_train, x_test, y_train, y_test = gen_data(data_fpath)
+# color only
+x_train_col, x_test_col, y_train_col, y_test_col = gen_data(
+  data_fpath, features_to_drop=[c for c in x_train.columns if c != 'color'])
+# chemicals only
+x_train_chm, x_test_chm, y_train_chm, y_test_chm = gen_data(
+  data_fpath, features_to_drop=['color'])
+```
 
-<Tables and plot code to be added in here - code is in `benchmark_tables_plots.R`>
-[Interpretation to follow]
+```{python train-models, engine.path='C:/Miniconda3/envs/py36/python.exe', eval=FALSE}
+# train on all data
+train('unscaled', x_train, y_train)
 
+# train on colors only
+train('unscaled-color', x_train_col, y_train_col)
+
+# train on chemicals, no color
+train('unscaled-chemical', x_train_chm, y_train_chm)
+```
+
+```{python eval-models, engine.path='C:/Miniconda3/envs/py36/python.exe', eval=FALSE}
+## Evaluation
+results_all = evaluate_models('unscaled', x_test, y_test)
+results_col = evaluate_models('unscaled-color', x_test_col, y_test_col)
+results_chm = evaluate_models('unscaled-chemical', x_test_chm, y_test_chm)
+
+#save 
+results_all.to_csv('./output/results_unscaled_all.csv', index=False)
+results_col.to_csv('./output/results_color_all.csv', index=False)
+results_chm.to_csv('./output/results_chemical_all.csv', index=False)
+
+## Model-specific results
+regressors, classifiers = load_models('unscaled')
+# get rf importances
+rf_importances = rf_feature_importances(regressors['rf'], x_train.columns)
+rf_importances.to_csv('./output/rf_importances_all.csv', index=False)
+```
+
+```{r make_benchmark_outputs, include=FALSE}
+
+# Function to make formatted benchmark results table
+benchmarktable <- function(file, task, measure) {
+
+df <- read.csv(file = here("output", file))
+capvars <- paste(str_split(str_replace(file, ".csv", ""), "_", simplify = TRUE)[3:2], collapse = " ")
+
+df %>% 
+  filter(type == task) %>% 
+  filter(metric %in% measure) %>% 
+  select(-type) %>%
+  mutate(metric = case_when(
+    metric == "f1_score" ~ "Accuracy",
+    TRUE ~ str_to_upper(metric)
+    )) %>% 
+  mutate(model = case_when(
+    model %in% c("dummy","linear") ~ str_to_title(model),
+    TRUE ~ str_to_upper(model)
+    )) %>% 
+  rename_at(., vars(starts_with("m")), str_to_title) %>% 
+  rename_at(., vars(ends_with("b")), str_to_upper) %>% 
+  kable(digits = 4,
+        booktabs = T,
+        format = "latex",
+        caption = paste("Benchmarking", "results -", ifelse(task == "reg", "regression", "classification"), "task with", capvars, "variables")) %>% 
+  kableExtra::row_spec(0, bold = TRUE) %>% 
+  kableExtra::kable_styling(latex_options = "hold_position")
+
+}
+
+# Function to make formatted benchmarking plots
+
+benchmarkplot <- function(file, task, measure) {
+  
+  df <- read.csv(file = here("output", file))
+  capvars <- paste(str_split(str_replace(file, ".csv", ""), "_", simplify = TRUE)[3:2], collapse = " ")
+  fmeasure <- ifelse(measure == "f1_score", "Accuracy", str_to_upper(measure))
+  
+  df %>% 
+    filter(type == task) %>% 
+    filter(metric %in% measure) %>% 
+    select(-type) %>%
+    mutate(metric = case_when(
+      metric == "f1_score" ~ str_replace(str_to_title(metric), "_", " "),
+      TRUE ~ str_to_upper(metric)
+    )) %>% 
+    mutate(model = case_when(
+      model %in% c("dummy","linear") ~ str_to_title(model),
+      TRUE ~ str_to_upper(model)
+    )) %>% 
+    rename_at(., vars(starts_with("m")), str_to_title) %>% 
+    rename_at(., vars(ends_with("b")), str_to_upper) %>% 
+    ggplot(aes(Mean, Model, color = Model)) +
+    geom_point() +
+    geom_errorbarh(aes(xmin = LB, xmax = UB)) +
+    theme(legend.position = "none") +
+    xlab(paste("Mean", fmeasure)) +
+    theme(text = element_text(size = 12)) 
+  # +
+  #   ggtitle(paste("Benchmarking", fmeasure, "results -", ifelse(task == "reg", "regression", "classification"), "task with", capvars, "variables")) +
+  #   theme(plot.title = element_text(size = 10))
+}
+
+benchmarkplot <- function(file, task, measure) {
+  
+  df <- read.csv(file = here("output", file))
+  capvars <- paste(str_split(str_replace(file, ".csv", ""), "_", simplify = TRUE)[3:2], collapse = " ")
+  fmeasure <- ifelse(measure == "f1_score", "Accuracy", str_to_upper(measure))
+  
+  df %>% 
+    filter(type == task) %>% 
+    filter(metric %in% measure) %>% 
+    select(-type) %>%
+    mutate(metric = case_when(
+      metric == "f1_score" ~ str_replace(str_to_title(metric), "_", " "),
+      TRUE ~ str_to_upper(metric)
+    )) %>% 
+    mutate(model = case_when(
+      model %in% c("dummy","linear") ~ str_to_title(model),
+      TRUE ~ str_to_upper(model)
+    )) %>% 
+    rename_at(., vars(starts_with("m")), str_to_title) %>% 
+    rename_at(., vars(ends_with("b")), str_to_upper) %>% 
+    
+    ggplot(aes(Model, Mean, fill = Model)) +
+    geom_bar(stat='identity') +
+    scale_fill_brewer(type = 'qual', palette = 4) +
+    geom_errorbar(aes(ymin = Mean-LB, ymax = Mean+UB),
+                   position = position_dodge(), width=0.3) +
+    theme(legend.position = "none") +
+    xlab(paste("Mean", fmeasure)) +
+    theme(text = element_text(size = 12),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+          axis.line = element_line(color = 'black'))
+}
+
+
+# a function to get the stat I want
+get_stat <- function(file, task, learner, measure, digits = 3) {
+  
+  df <- read.csv(file = here::here("output", file))
+
+  # Pipes not working in inline R code - even though they were before...!?!?!
+  # df %>% 
+  #   filter(type == task) %>% 
+  #   filter(metric == measure) %>% 
+  #   filter(model == learner) %>% 
+  #   select(mean) %>% 
+  #   round(digits) %>% 
+  #   as_vector()
+  
+  y <- subset(x = df, subset = type == task & metric == measure & model == learner, select = "mean")
+  y <- round(y, digits)
+  return(y)
+}
+
+# a function to get the average stat across learners
+get_avg_stat <- function(file, task, learners = c("rf", "linear", "mlp", "svm")) {
+   
+  y <- sapply(X = learners, function(x) get_stat(file = "results_chemical_all.csv", task = "reg", learner = x, measure = "mse", digits = 3))
+  y <- mean(unlist(y))
+  y <- round(y, 3)
+  return(y)
+  
+}
+
+round(mean(unlist(sapply(X = c("rf", "linear", "mlp", "svm"), function(x) get_stat(file = "results_chemical_all.csv", task = "reg", learner = x, measure = "mse", digits = 3)))),3)
+
+# Get the parameters into lists for pmap
+
+files <- c("results_unscaled_all.csv", "results_chemical_all.csv", "results_color_all.csv")
+tasks <- c("reg", "clf")
+measures <- c("mse", "mae", "f1_score")
+
+benchdata <- list(files = files, tasks = tasks, measures = measures)
+
+# Make the benchmarking tables
+benchtablelist <- 
+  benchdata %>%
+    purrr::cross_df() %>% 
+    filter(!(tasks == "reg" & measures == "f1_score")) %>% 
+    pmap(., ~ benchmarktable(..1, ..2, ..3))
+
+# Make the benchmarking plots
+benchplotlist <- 
+  benchdata %>%
+  purrr::cross_df() %>% 
+  filter(!(tasks == "reg" & measures == "f1_score")) %>% 
+  pmap(., ~ benchmarkplot(..1, ..2, ..3))
+
+```
+
+# Results
+
+## Results of the predictive benchmarking experiment
+
+### Regression task
+
+The results of the predictive benchmarking experiment for the regression task can be seen in Table \@ref(tab:regtask-results-tab). The random forest algorithm is the best performer on both metrics under consideration for the regression task, achieving a mean squared error of `r get_stat(file = "results_unscaled_all.csv", task = "reg", learner = "rf", measure = "mse")` and a mean absolute error of `r get_stat(file = "results_unscaled_all.csv", task = "reg", learner = "rf", measure = "mae")`. For comparison, the dummy regressor achieved a mean squared error of `r get_stat(file = "results_unscaled_all.csv", task = "reg", learner = "dummy", measure = "mse")` and a mean absolute error of `r get_stat(file = "results_unscaled_all.csv", task = "reg", learner = "dummy", measure = "mae")`. On the MSE metric, the SVM is the next best performer, followed by the linear model, the MLP, and finally the dummy regressor.
+
+```{r regtask-results-tab}
+
+benchmarktable(file = "results_unscaled_all.csv", 
+               task = "reg", 
+               measure = c("mse", "mae"))
+```
+
+Figure \@ref(fig:regtask-results-fig) plots these results for each algorithm.
+
+```{r regtask-results-fig, echo=FALSE, fig.cap="Benchmarking results - regression task with all variables", fig.show='hold', out.width='50%'}
+
+benchmarkplot(file = "results_unscaled_all.csv", 
+              task = "reg", 
+              measure = "mse") 
+
+benchmarkplot(file = "results_unscaled_all.csv", 
+              task = "reg", 
+              measure = "mae") 
+
+```
+
+
+The performance of the algorithms on the same task but with a reduced set of predictor variables can be seen in Figure \@ref(fig:regtask-results-fig2). The left-hand plot shows model performance (mean squared error) with wine colour as the only predictor. The right-hand plot shows results for physiochemical predictors only. Interestingly, all five algorithms have an almost identical, large, MSE (`r get_avg_stat(file = "results_color_all.csv", task = "reg")`) for the wine colour only model, suggesting that wine colour alone is not a strong predictor of quality. In contrast, replacing wine colour with the physiochemical characteristics of a wine leads to differential performance across algorithms, and an average MSE of `r get_avg_stat(file = "results_chemical_all.csv", task = "reg")` for all algorithms excluding the dummy regressor, which had an unchanged performance.
+
+```{r regtask-results-fig2, fig.cap="Benchmarking results - regression task with wine colour only (left) and physiochemical variables only (right)", fig.show='hold', out.width='50%'}
+
+benchmarkplot(file = "results_color_all.csv", 
+              task = "reg", 
+              measure = "mse") 
+
+benchmarkplot(file = "results_chemical_all.csv", 
+              task = "reg", 
+              measure = "mse") 
+
+```
+
+
+### Classification task
+
+The results of the predictive benchmarking experiment for the classification task can be seen in Table \@ref(tab:clftask-results-tab). As with the regression task, the random forest model was again the best performer, achieving classification accuracy of `r get_stat(file = "results_unscaled_all.csv", task = "clf", learner = "rf", measure = "f1_score")` and a mean absolute error `r get_stat(file = "results_unscaled_all.csv", task = "clf", learner = "rf", measure = "mae")`. For comparison, the dummy regressor achieved a classification accuracy of `r get_stat(file = "results_unscaled_all.csv", task = "clf", learner = "dummy", measure = "f1_score")` and a mean absolute error `r get_stat(file = "results_unscaled_all.csv", task = "clf", learner = "dummy", measure = "mae")`. The ranking of algorithms by classification accuracy was the same as for the regressio task, with the SVM following the RF, then the linear model, the MLP, and the dummy regressor in fifth position.
+
+```{r clftask-results-tab}
+
+benchmarktable(file = "results_unscaled_all.csv", 
+               task = "clf", 
+               measure = c("f1_score", "mae"))
+
+```
+
+
+Figure \@ref(fig:clftask-results-fig) plots these results for each algorithm.
+
+```{r clftask-results-fig, fig.cap="Benchmarking results - classification task with all variables", fig.show='hold' , out.width='50%'}
+
+benchmarkplot(file = "results_unscaled_all.csv", 
+              task = "clf", 
+              measure = "f1_score") 
+
+benchmarkplot(file = "results_unscaled_all.csv", 
+              task = "clf", 
+              measure = "mae") 
+
+```
+
+The performance of the algorithms on the same task but with a reduced set of predictor variables can be seen in Figure \@ref(fig:clftask-results-fig2). The left-hand plot shows model accuracy with wine colour as the only predictor. The right-hand plot shows results for physiochemical predictors only. Interestingly, all algorithms except the dummy regressor achieve identical classification accuracy (`r get_avg_stat(file = "results_color_all.csv", task = "clf")`) when using wine colour as the only model feature. As with the regression task, replacing wine colour with the physiochemical characteristics of a wine leads to differential performance across algorithms, and an average MSE of `r get_avg_stat(file = "results_chemical_all.csv", task = "clf")` for all algorithms excluding the dummy regressor, which was again unchanged.
+
+```{r clftask-results-fig2, fig.cap="Benchmarking results - classification task with wine colour only (left) and physiochemical variables only (right)", fig.show='hold', out.width='50%'}
+
+benchmarkplot(file = "results_color_all.csv", 
+              task = "clf", 
+              measure = "f1_score") 
+
+benchmarkplot(file = "results_chemical_all.csv", 
+              task = "clf", 
+              measure = "f1_score") 
+
+```
+
+## Important components of a "good" wine
+
+A useful characteristic of the random forest algorithm is its ability to determine the relative salience of the various features utilised during training. 
+
+```{r rf-impvar-results-tab}
+
+rf_impvar <- read.csv(here("output", "rf_importances_all.csv"))
+
+rf_impvar %>% 
+  mutate(feature = as.character(feature)) %>% 
+  mutate(feature = case_when(
+    feature == "pH" ~ "pH",
+    TRUE ~ Hmisc::capitalize(feature)
+  )) %>% 
+  kable(format = "latex", 
+        booktabs = T,
+        digits = 3, 
+        col.names = c("Feature", "Mean", "SD"), 
+        caption = "Relative feature importance in classifying wine quality") %>% 
+  kableExtra::row_spec(0, bold = TRUE) %>% 
+  kableExtra::kable_styling(latex_options = "hold_position")
+
+```
+
+```{r rf_impvar_get_stat}
+
+# a function to get key stats from the RF importance table
+
+rf_get_stat <- function(feat) {
+  
+  rf_impvar <- read.csv(here::here("output", "rf_importances_all.csv"))
+
+  # Pipes don't seem to work in inline r code in bookdown::pdf_document2 style
+  
+  # rf_impvar %>% 
+  #   filter(feature == feat) %>% 
+  #   select(mean) %>% 
+  #   round(3) %>% 
+  #   as_vector()
+  
+  y <- subset(x = rf_impvar, subset = feature == feat, select = "mean")
+  y <- round(y, 3)
+  return(y)
+}
+
+```
+
+
+Table \@ref(tab:rf-impvar-results-tab) shows the relative importance of each of the variables in the Wine Quality dataset with regards to its use in predicting wine quality. As can be seen, alcohol(vol%) is the most important feature, with a mean importance of `r rf_get_stat("alcohol")`, folowed by volatile acidity i.e. mass concentration of acetic acid (`r rf_get_stat("volatile acidity")`) and density (`r rf_get_stat("density")`). Fixed acidity (`r rf_get_stat("fixed acidity")`) and colour (`r rf_get_stat("color")`) are the least useful features, suggesting wines of both colours and across the range of mass concentrations of tartaric acid can be "good" wines (and "bad" wines).
+ 
+
+## The search for the perfect wine
+
+By creating mixtures of chemicals (and color) -- limited only to the ranges observed in the test data -- we attempt to simulate a wine that will achieve a perfect "10" rating by our models' estimates (reiterating that such a wine may be impossible to create in the physical world, is missing other key components, and is "perfect" only in the eyes of the trained models for which it is optimized).
+
+We use a support vector machine (SVM) and linear regression model to produce two possible "super-wines", since they are both capable of predicting values beyond the range of data used in training. For the linear regression model, we maximize the values of each feature known to correspond to high quality wines, and minimize those associated with low-quality wines. For the SVM, we can randomly sample values for each predictor (within the range of the training data) and feed the artificial wine into the SVM, stopping when we achieve a rating above 10.
+
+```{python superwine, engine.path='C:/Miniconda3/envs/py36/python.exe', eval=FALSE}
+# Superwine creation
+lin = regressors['linear'].best_estimator_
+svm = regressors['svm'].best_estimator_
+
+# Obtain bounds of training data
+feature_bounds = [(x_test[f].min(), x_test[f].max()) for f in x_train]
+
+# Simulate a wine using the linear regression coefficients
+simwine_lin = np.array([b[c > 0] for b, c in zip(feature_bounds, lin.coef_)])
+simwine_lin = simwine_lin.reshape(1, -1)
+
+# Simulate a wine using by sampling until we get a wine "better than any one
+# we have seen", based on the SVM
+pred = 0
+while pred < 10.0:
+  simwine_svm = np.array([np.random.uniform(*b) for b in feature_bounds])
+  simwine_svm = simwine_svm.reshape(1, -1)
+  # restrict the last feature, the color, to be red or white
+  simwine_svm[:, -1] = np.random.choice((0 , 1))
+  pred = svm.predict(simwine_svm)
+
+# Save the two simulations, noting their performance on the models
+simwines = pd.DataFrame(
+  {'linear': simwine_lin[0], 'svm': simwine_svm[0]}, index=x_train.columns)
+simwines.to_csv('./output/simwine_data.csv')
+
+simwine_preds = pd.DataFrame({
+  name: model.predict(np.vstack([simwine_lin, simwine_svm]))
+  for name, model in regressors.items()
+}, index = ['linear', 'svm'])
+simwine_preds.to_csv('./output/simwine_preds.csv')
+```
+
+Unfortunately, these "superwines" fail to achieve 10 ratings across all models, which is to be expected, since they were optimized for these particular models. However, they do indicate certain trends. As seen in Table \@ref(tab:simwine-preds-tab), they tend to have higher levels of free sulfur dioxade but lower levers of total sulfur dioxide than the average wine in the data, and have increased levels of chlorides and residual sugar.
+
+```{r superwine-eval, message=FALSE, warning=FALSE}
+simwine_preds <- read_csv('./output/simwine_preds.csv')
+simwines <- read_csv('./output/simwine_data.csv')
+```
+
+```{r simwine-preds-tab}
+simwines %>%
+  mutate(avg = origwine %>% select(-quality) %>% summarize_all(mean) %>% t,
+         
+         linear = if_else(X1 %in% concvars, exp(linear), linear),
+         svm = if_else(X1 %in% concvars, exp(svm), svm),
+         
+         linear = sprintf('%.2f', linear) %>% recode('1.00'='Red'),
+         svm = sprintf('%.2f', svm) %>% recode('0.00'='White'),
+         avg = sprintf('%.2f', avg) %>% recode('0.25'='25% Red')
+         ) %>%
+  select(X1, avg, linear, svm) %>%
+  kable(format = "latex", 
+        booktabs = T,
+        digits = 3,
+        align = 'r',
+        col.names = c('Variable', 'Mean','Linear', 'SVM'),
+        caption = "Simulated Wine Characteristics") %>% 
+  kableExtra::row_spec(0, bold = TRUE) %>%
+  kableExtra::kable_styling(latex_options = "hold_position")
+```
+
+```{r simwine-preds-fig1, fig.cap="Simulated Wine Performance by Model", fig.show='hold', out.width='75%'}
+simwine_preds %>%
+  gather(key='Model', value='Rating', -X1) %>%
+  rename(`Optimized for` = X1) %>%
+  mutate(
+    Model = recode(
+      Model,
+      dummy = 'Dummy',
+      linear = 'Linear', 
+      svm = 'SVM', 
+      rf = 'Random Forest', 
+      mlp = 'Neural Net'
+    ),
+    `Optimized for` = recode(
+      `Optimized for`,
+      linear = 'Linear',
+      svm = 'SVM'
+    ),
+    highlight = `Optimized for` == `Model`
+  ) %>%
+  ggplot() +
+  geom_bar(aes(x = Model, y = Rating, fill = `Optimized for`),
+           stat='identity', position = position_dodge()) +
+  scale_fill_brewer(type='qual', palette = 1) +
+  geom_bar(aes(x = Model, y = Rating, fill = `Optimized for`, color = highlight),
+           alpha=0, stat='identity', position = position_dodge(), size=1.25) +
+  scale_color_manual(values=c(NA, "black"), guide = FALSE) +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        axis.line = element_line(color = 'black'))
+
+```
+
+## A 'super-human' AI
+
+Although our models are likely to rate wines with greater consistentcy than sommeliers -- and perhaps make more accurate predictions on objective metrics, like provenance -- without more information we are unable to determine with certainty if Delicious AI can outperform humans' predictive performance on any given metric. Lacking data on measurable human performance, we cannot speak to a strictly "superhuman" capacity.
+
+However, our models are, on average, able to rate wines to within a close margin of sommelier rankings using only a limited subset of information (e.g., the models cannot assess the aroma directly). Moreover, some of these characteristics are present early in the winemaking process, perhaps well before an expert could make a judgement of quality (although here too we would need more information to make such a determination).
+
+```{r superhuman-results, message=FALSE}
+sh_rf_mse <- 
+  read_csv('./output/results_superhuman_all.csv') %>%
+  filter(type == 'reg', model == 'rf', metric == 'mse') %>%
+  summarize_at(vars('mean', 'lb', 'ub'), round, 2)
+
+all_rf_mse <- 
+  read_csv('./output/results_unscaled_all.csv') %>%
+  filter(type == 'reg', model == 'rf', metric == 'mse') %>%
+  summarize_at(vars('mean', 'lb', 'ub'), round, 2)
+```
+
+Namely, a wine's color, fixed acidity, citric acid, residual sugar, and chlorides are all largely determined by grape characteristics rather than effects of the fermentation process. Limiting ourselves to these components alone, our best model acheives a mean squared error of `r sh_rf_mse$mean`, [`r sh_rf_mse$lb`, `r sh_rf_mse$ub`], which is worse than the best model trained on all variables (`r all_rf_mse$mean`, [`r all_rf_mse$lb`, `r all_rf_mse$ub`]), but nonetheless represents an improvement over the naive baseline, performing on par with the linear model that uses all data. Obtaining such an early estimate could help guide the manufacturing process, alerting winemakers to potential problems with a batch.
+
+Although human winemakers indeed use similar variables to select harvest times, it is within the realm of possibility that Delicious AI could make judgements of resulting wine quality with "super-human" prescience and accuracy.
 
 # Conclusions
 
@@ -503,4 +943,50 @@ wine_stats_by_color <- by(data = recode_color(wine),
                            INDICES = wine$color, 
                            FUN = descr, stats = c("mean", "sd", "min", "med", "max"), transpose = TRUE)
 view(wine_stats_by_color, method = "pander")
+```
+
+
+## Clustering
+We also try clustering and observe  __ 
+
+<cluster graphs>
+```{r mclust, eval=FALSE}
+## do clusgap (takes a while)
+## also look at mclust/hclust
+## look at pairs plot
+## look at sulfates v quality, clusters v sulfates, quality v clusters
+## scale as well
+## consider looking at ARI/ASW
+
+mclust_results <-
+  select(wine, -quality) %>%
+  Mclust(1:15)
+saveRDS(mclust_results, './intermediate/mclust_results.rds')
+```
+
+```{r plot-clustering, warning=FALSE}
+mclust_results <- readRDS('./intermediate/mclust_results.rds')
+wine$cluster <- factor(mclust_results$classification)
+
+# do we observe clearly-delineated clusters?
+wine %>%
+  ggpairs(
+      mapping = aes(color = cluster, alpha = 0.4),
+      columns = c(variable_var$key[1:n])
+  )
+  
+# do they divide up quality in any meaningful way?
+# not especially! perhaps this isn't the most salient feature
+wine %>%
+  ggplot(aes(x = quality)) +
+  geom_bar(aes(fill = cluster))
+  
+# also examine relationship to color
+wine %>%
+  recode_color %>%
+  ggplot(aes(x = color)) +
+  geom_bar(aes(fill = cluster))
+
+# remove cluster variable
+wine$cluster <- NULL
 ```
