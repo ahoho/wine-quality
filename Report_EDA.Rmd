@@ -1,0 +1,428 @@
+---
+---
+title: "Artificially Intelligent Wine Tasting"
+subtitle:  "A report on the performance and utility of an \"AI Sommelier\" "
+author: "Student Number: 16035918, 16044460, 17107203"
+header-includes:
+   - \usepackage{amsmath, amsfonts, nicefrac, bm, fancyhdr}
+   - \pagestyle{fancy}
+   - \fancyhf{}
+   - \rhead{16035918, 16044460, 17107203}
+   - \rfoot{Page \thepage}
+   - \usepackage{booktabs}
+   - \usepackage{longtable}
+   - \usepackage{array}
+   - \usepackage{multirow}
+   - \usepackage[table]{xcolor}
+   - \usepackage{wrapfig}
+   - \usepackage{float}
+   - \usepackage{colortbl}
+   - \usepackage{pdflscape}
+   - \usepackage{tabu}
+   - \usepackage{threeparttable}
+   - \usepackage[normalem]{ulem}
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  bookdown::pdf_document2:
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, #cache = TRUE, cache.lazy = FALSE,
+                      fig.pos = "H")
+```
+
+```{r load_pkgs, message=FALSE, warning=FALSE}
+
+# use pacman for package management
+if(!require("pacman")) {
+    install.packages("pacman")
+}
+
+# load the tidyverse, joyplots (now in ggridges) for plots,
+# magrittr for pipes, summarytools for descriptives
+pacman::p_load(
+  tidyverse, ggridges, magrittr, summarytools,
+  GGally, mclust, feather, reticulate, purrr, here, stringr,
+  kableExtra, broom, knitr)
+```
+
+```{r load_data, message=FALSE}
+
+# read in the csv files
+wine <- 
+  bind_rows(
+    # read in white, encode as 0
+    read_delim('./input/winequality-white.csv', delim=';', guess_max=10000) %>%
+      mutate(color=0L),
+    # read in red, encode as 1
+    read_delim('./input/winequality-red.csv', delim=';', guess_max=10000) %>%
+      mutate(color=1L)
+  )
+```
+
+
+```{r helper-functions}
+recode_color_ <- function(x) dplyr::recode(x, `1` = 'Red', `0` = 'White')
+recode_color <- function(x){
+  # used to avoid factors, which can be capricious
+  
+  switch(
+    is.data.frame(x) + 1,
+    # if not a dataframe, directly recode
+    recode_color_(x),
+    # if a dataframe, overwrite color column (presumed to exist)
+    dplyr::mutate(x, color=recode_color_(color))
+  )
+}
+```
+
+# Executive Summary
+## Project Goals
+
+[TO FOLLOW]
+
+
+## Findings
+
+[TO FOLLOW]
+
+
+## Conclusions
+
+[TO FOLLOW]
+
+
+## Limitations
+
+[TO FOLLOW]
+
+\newpage
+
+# Introduction
+
+## Overview
+
+This research project investigates the performance and utility of an "AI sommelier" - Delicious AI's flagship, eponymous, artificial intelligence application for the automatic identification and rating of high quality wines. For Delicious AI, the "AI sommelier" is likely to be the first of many artificial intelligence applications focusing on the food and drinks market. Understanding the "AI sommelier's" performance and usability is vital for Delicious AI's long-term vision of creating artificial intelligences with an appreciation for quality food. In order to develop an AI which can create high quality novel cuisine, it is important to establish whether an AI can identify quality in the first place.
+
+As part of the initial scoping out of this project, we have been employed by Delicious AI to investigate the possibility of using machine learning techniques to automatically evaluate a range of high quality wines in a reliable, accurate, efficient, and scalable manner. We have further been tasked with exploring whether it will be possible for an algorithm to provide the recipe for a wine better than any seen before. In this report we summarise the results of our investigations and provide our recommendations for your "AI sommelier" product. We trust that it will provide you with useful information on the performance and utility of an "AI sommelier", and additionally inform the extent to which you allocate analytical resources towards developing your food and drink AIs.
+
+## Research questions
+
+*Discuss, before doing any analyses, which of the questions, numbered 1 to 4 in the scenario outline on p.4-5, you can answer, or to which extent you can come close to answering the questions, using only the data provided. Explicitly state the scientific, empirically quantifiable questions that you are going to address. In the final report, this should be summarized as a separate (optimally, the second) section, which does not contain any analyses.*
+
+The first question we consider is whether we can use the dataset to create an AI with super-human performance in wine-tasting. It is important to note that we are training Delicious AI to predict how a wine would be rated by human wine sommeliers, so its predictions should align with subjective human judgements of wine quality, not a "super-human" ground truth (whatever that may be). However, Delicious AI will still have other qualities which make it super-human in wine-tasting tasks.  First, Delicious AI will have an inhuman ability to be consistent in its ratings of wines. While a human sommelier may occasionally evaluate the same bottle of wine differently depending on mood, context and other factors, Delicious AI will reliably give the same rating to a given bottle of wine, with a known margin of error. Second, once a data-gathering system is in place at a winery, Delicious AI will be super-human in its ability to rate wines at scale. An individual sommelier would need days or weeks to systematically taste and evaluate every batch of wine produced by a winery. Further, each wine would have to be evaluated by multiple sommeliers in order to calculate a mean rating that averages out the potential biases and differences between individual sommeliers. Meanwhile, Delicious AI alone can evaluate all of the batches of wine in a matter of minutes, incorporating the subjective tastes of a variety of human sommeliers. Perhaps most significantly, Delicious AI can periodically evaluate the wines at different stages of the production process, predicting the future quality of a wine before it even exists. One of the main focuses of our investigation will be developing an early-prediction algorithm for wine quality.
+
+Second, we would like to determine which components of wine constitute a wine a good wine. In order to empirically analyze this question, we define a "good" wine as a wine which is rated highly (above 5) by the sommeliers in our dataset. In theory, we could also identify wines considered "good" by individuals of a specific demographic (eg, young consumers in eastern Europe), but this would require additional data, so we will instead focus on finding the components of wine that are associated with high ratings from sommeliers. The simplest way to scientifically investigate this question is to analyze correlation plots between wine quality and individual variables from the wine dataset. Similarly, we can look at the coefficients in a linear regression model to see how much an increase in the value of a particular variable will increase the predicted rating, conditioned on the other variables. We can additionally use a two-sample t-test to determine whether the mean of a variable is statistically different among good wines and bad wines, comparing the distributions of the variable when the data is partitioned between the two groups. Each of these methods will provide new insight into which components are associated with higher ratings. There may be additional components of wine outside the scope of our dataset which serve as important indicators of quality, but we would need additional data to investigate this possibility.
+
+Next, we would like to assess whether we can create a "perfect" wine whose quality exceeds that which we have seen in our data. In order to conceive a grade 10 wine, Delicious AI would have to extrapolate beyond the labels and combinations of predictors seen in the training data, so it is difficult to guarantee that the model would be valid for these new ranges of the variables. We have no reason to believe that the assumptions made by the models will hold for a novel combination of chemicals, nor do we make any claims that such a combination is physically possible or safe for human consumption. [We must also assume that the dataset contains all the relevant variables necessary to produce a high-grade wine.] Despite the lack of performance guarantees, we can still use Delicious AI for creative inspiration, identifying which novel combinations of variables Delicious AI would expect to produce a perfect wine. In this way, Delicious AI can suggest new combinations of features that wine producers may not have otherwise considered.
+
+Finally, we consider a question raised by a philosopher of ethics - is the human perception of wine quality so subjective that there is no empirically verifiable correlate of good and bad wine? This is a perfectly reasonable question to ask, considering that new sommeliers are trained to match the opinions of existing sommeliers, so human biases could easily perpetuate for generations. This consideration aside, in theory, the blind-tasting of the wines should have mitigated the influence of factors exogenous to the wines themselves. It would be helpful to know the variance of ratings for each wine and how consistently human sommeliers rate the same wine. For example, would a sommelier rate a wine differently if it were presented in a different bottle? We would need to conduct an experiment to answer these questions. However, we can still use the dataset for insight into whether wines rated highly tend to have a different set of features than wines rated poorly. We can again look at the variable distributions and use a two-sample t-test to determine whether the mean of a predictor is different among good and bad wines. We can also see how accurately Delicious AI can predict wine ratings from the features alone. A high prediction accuracy will at least confirm that the ratings among sommeliers are not random and correspond to empirically verifiable differences in wine components. Of course, Delicious AI is only trained to approximate *expert* opinion, which is not necessarily an objective measure of wine quality and may differ from individual preferences or the preferences of the general wine-drinking public. But this is still valuable because expert opinion tends to drive market prices, and we can always train Delicious AI on different data in order to predict individual or demographically relevant ratings. Similarly, with additional data we Delicious AI could predict external metrics such as quantity sold or awards recieved.
+        
+The specific, scientific, empirically quantifiable questions we propose to answer in this project are:
+
+1. Supposing that certain variables are detectable early in the wine-making process, is it possible to train a model on these variables alone that is sufficiently predictive of the sommelier ratings?
+2. Which features are most strongly associated with high-quality ratings?
+3. Is it possible to simulate a (reasonable) dataset of wines, upon some subset of which our "best" learner estimates a rating of 10?
+4. Can we produce a model that is predictive of the expert ratings? 
+5. Do the raw data support relationships between objective qualities and the ratings? 
+6. Can an unsupervised method determine any clusters that bear some relationship to ratings (avg. silhouette width/adjusted rand index)? [Probably cut]
+
+
+# Methods and data
+
+In this section we describe the data and modelling approaches we undertook in this study. We also outline all key decisions made in our work.
+
+## Methods
+The main purpose of our investigation was to explore the feasibility of an "AI sommelier". In order to do this, we conducted a series of predictive benchmarking experiments to compare the performance and utility of various machine learning algorithms. 
+
+We used each algorithm to determine:
+
+1. whether, and how well wine quality can be predicted from chemical composition and colour;
+2. whether wine colour adds predictive power above chemical composition and vice versa, in 1.
+
+Our predictive benchmarking experiments were first carried out with wine quality treated as a continuous variable (univariate regression) and then repeated with wine quality treated as a categorical variable (deterministic classification). The nature of the wine quality scale is such that both approaches were deemed reasonable.
+
+### Algorithms
+The following five algorithms were analysed in all experiments:
+
+- an intercept-only dummy regressor model (DR)
+- a linear regression model (LR)
+- a non-linear support vector machine (SVM),
+- an ensemble of (at least 10) trees (RF)
+- a neural network with two or more middle layers (MLP)
+
+We used the intercept-only dummy regressor (mean) model as a "best guess" performance baseline against which the other algorithms could be compared. The linear/logistic regression model was chosen because it is a simple, fast, and easy to understand model that would allow us to understand relationships between the quality of a wine and its characteristics. The SVM has previously been identified as the best performing model for classifying wine by quality (Cortez et. al. 2009). Like the linear regression model, Random Forests are relatively easy to understand and quick to implement. Additionally, they are able to deal with a minimally pre-processed input data, can perform automatic feature selection, and provide information on the importance of model features. Finally, neural networks are also able to create and combine new features independently, and perform well on classification tasks. Although it is harder to interpret the relationship between features and classification decisions, neural networks have the advantage of being able to work with unlabelled data, so that Delicious AI could develop its own taste; to carry out multitask learning, which is useful when your company expands to other products; and to learn embedded representations of data, such as the taste sensor data that may be available in the future.
+
+### Optimisation
+In order to achieve the best performance from each algorithm for each task, we optimised model hyper-parameters using randomised search with 3-fold cross-validation. In the randomised search method, a fixed number of parameter settings is sampled from specified distributions, and then optimised by cross-validated search over parameter settings. Since the randomised search method does not test every single parameter in the search space, it is considerably faster than a full grid search. Using cross-validation allowed us to make the most of our training data, whilst also lowering the risk of overfitting our model to a specific train/validation split. Hyper-parameters were optimised separately for the regression task (to minimise the mean squared error) and for the classification task (to maximise accuracy). The following hyper-parameters were optimised or pre-selected for each learner and each task (where relevant), with all other parameters set to their defaults:
+
+* Linear/logistic regression: 
+    + Penalty: L1 or L2
+    + C: sampled from an exponential distribution with $\lambda = 0.1$
+* SVM:
+    + C: sampled from an exponential distribution with $\lambda = 0.1$
+    + Gamma:  sampled from an exponential distribution with $\lambda = 10$
+    + Kernel: Radial Basis Function (pre-selected)
+* Random Forest:
+    + Number of trees: between 10 and 100
+    + Number of features: between 1 and 11
+    + Maximum tree depth: None (pre-selected)
+* Multilayer Perceptron:
+    + Activation functions: ReLU or Sigmoid
+    + Hidden layer size/number of neurons in a hidden layer: 32, 64 or 128
+    + Learning rate: sampled from a normal distribution with $\mu = 0.001$,  $\sigma = 0.0002$
+    + Maximum iterations: 500 (pre-selected)
+
+### Performance metrics
+
+Two performance metrics were used to compare the predictive performance of our learners in the univariate regression task - mean squared error and mean absolute error. In addition to these two metrics, an accuracy score was also evaluated for the classification task. 
+
+### Model validation
+
+The standard protocols for carrying out a supervised learning benchmarking experiment were followed in this study. Of the 6,497 wines in the dataset, a random 20% sample (1,299 wines) was held out as a separate test set. The same test set was used for all benchmarking experiments to evaluate the performance and generalisability of our different models on previously unseen data. The test set was not used for any model training or hyper-parameter optimisation purposes. The remaining 80% sample (5,198 wines) was used as a training set upon which each model could be learned and hyper-parameters could be optimised.
+
+The learners were all evaluated on the same test set for both the regression and classification tasks using the previously outlined performance metrics. The mean and 95% bootstrapped confidence intervals for the each performance metric on the test set were calculated for each algorithm and each task. Bootstrapped resamples with replacement were taken from the test set in order to do this. Each resample was the size of the test set (1,299 wines) and the resampling process was repeated for 1,000 iterations. The results of this process can be seen in section [XX].
+
+### Additional methodological considerations
+
+In line with the project specification provided by Delicious AI, all wines were retained in all benchmarking experiments i.e. outliers were not removed. We used the full range of wine quality values present in the dataset i.e. the target variable was not grouped into broader categories. Both red and white wines were analysed together so that models learned from a single dataset, rather than a separate model by colour. For consistency across learners, we did not specify any feature interactions, as different learners determine relevant model features in their own ways. All variable transformations were carried on both training and test sets. The relative importance of different features was evaluated using the RF regression model.
+
+[More here…]
+
+## Data
+
+We used the Wine Quality Dataset for this project. This systematic data on 1599 red and 4898 white vinho verde quality wines from Portugal was acquired specifically to help the AI sommelier acquire its taste for wine. Wine quality was measured using the median sensory preference for a wine from up to three sensory assessors. These sensory preferences were decided following blind sensory assessment on a subjective scale of 0 (disgusting) to 10 (excellent). In the absence of a truly objective measure of wine quality, we used this subjective scale in order to train the AI sommelier towards an "expert's taste" for wine. We used the extensive physiochemical data on each wine as features in our models. Laboratory analysis of the wine provided the following 11 variables (in addition the wine quality measure):
+
+
+1. fixed acidity = mass concentration of tartaric acid (g=dm^3)
+2. volatile acidity = mass concentration of acetic acid (g=dm^$)
+3. mass concentration of citric acid (g=dm^3)
+4. residual sugar mass concentration (g=dm^3)
+5. mass concentration of sodium chloride (g=dm^3)
+6. mass concentration of free sulfur dioxide (mg=dm^3)
+7. mass concentration of sulfur dioxide total (mg=dm^3)
+8. density (g=cm^3)
+9. pH value
+10. mass concentration of potassium sulphate (mg=dm^3)
+11. alcohol content (vol%)
+
+Summary statistics and further descriptive, exploratory analysis can be seen in the next section.
+
+# Exploratory analysis
+
+First, we confirm that there are no missing entries in the dataset. We also notice that there are many more white wines (4898) than red wines (1599). Next, for each variable, we plot a summary of the range, mean, median, and first and third quartiles, shown below. A few variables in particular stand out. Citric acid, for example, has a minimum value of zero. Further investigation shows that there are 151 zero entries for citric acid. This indicates that it is an optional component in wine-making. In addition, we see that different variables take on quite different ranges of values. For instance, while "volatile acidity" ranges from 0.08 to 1.58, "free sulfur dioxide" ranges from 1 to 289. This suggests that we should try models in which we normalize the variables, although it would be easier to interpret unscaled models. We also notice that the ratings range from 3 to 9, indicating that no wines were "perfect" enough to achieve a 10 or awful enough to be rated 1 or 2.
+
+```{r summary-stats}
+q025 <- function(x) quantile(x, 0.25)
+q075 <- function(x) quantile(x, 0.75)
+
+wine_summary <-
+  wine %>%
+  
+  # summary statistics by color
+  # perhaps a little cleaner to look overall?
+  # group_by(color) %>%
+  summarize_all(
+    funs(min, q025, median,  mean, q075, max, sd)
+  ) %>%
+  
+  # transform data
+  # gather(... = -color) %>%
+  gather %>%
+  separate(key, into = c('Variable', 'statistic'), sep = '_') %>%
+  spread(key = statistic, value = value)
+
+# order variables with highest variation (after rescaling)
+variable_var <-
+  wine %>%
+  #select(#-color,
+         #-quality) %>%
+  # min-max scale the data
+  mutate_all(funs(. / (max(.) - min(.)))) %>%
+  # take variances
+  summarize_all(var) %>%
+  # reshape and sort
+  gather %>%
+  arrange(-value)
+
+# make beautiful
+wine_summary %>%
+  # recode_color %>%
+  select(
+    Variable,
+    # Color=color,
+    Min = min,
+    `1st Quantile` = q025,
+    Median = median,
+    Mean = mean,
+    `3rd Quantile` = q075,
+    Max = max,
+    `S.D.`=sd
+  ) %>%
+  arrange(Variable) %>%
+  kable(format = "latex", 
+        booktabs = T,
+        digits = 3,
+        caption = "Summary of Wine Data") %>% 
+  kableExtra::row_spec(0, bold = TRUE) %>% 
+  kableExtra::kable_styling(latex_options = "hold_position")
+
+print(wine_summary)
+```
+
+<Correlations>
+```{r cor-heatmap, fig.height=6, fig.width=6}
+wine_cor <-
+  wine %>%
+  select(-quality, -color) %>%
+  mutate_all(log1p) %>%
+  # get correlations
+  cor
+
+wine_cor[upper.tri(wine_cor, diag = TRUE)] <- NA
+  
+wine_cor %>%
+  reshape2::melt() %>%
+  # plot
+  ggplot(aes(x=Var1, y=Var2, fill=value)) +
+  geom_tile() +
+  scale_fill_gradient2(name = 'Pearson Corr.',
+                       limit=c(-1, 1)) + 
+  # geom_text(aes(label=round(value, 2))) +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  coord_fixed()
+  
+```
+
+We see that quite a few variables are skewed right or have large outliers, as indicated by a higher mean than median and relatively high maximum. These include chlorides, residual sugar, and sulphates. Residual sugar in particular has a median of 3 but max of 65.8. Upon looking at a table of values we see that this is due to just one outlier and the second highest value is 31.6. Histograms representing the distributions of these three variables can be found below.
+
+<distributions of chlorides, residual sugar, and sulphates>
+```{r histograms}
+# plot histograms (unscaled)
+wine %>%
+  select(chlorides, `residual sugar`, sulphates) %>%
+  #mutate_at(vars(-alcohol, -pH, -quality), log) %>%
+  gather(key='Variable', value='Value') %>%
+  ggplot(aes(x = Value)) +
+  geom_histogram(bins = 50) +
+  facet_wrap(~Variable, scale='free') +
+  ggtitle('Variable Histograms')
+```
+
+To correct for the skew, we consider log-transforming the predictors. The box-and-whisker plot (below) shows how the log-transformation has the potential to even out the distributions of individual variables. Additionally, research has demonstrated that log transformations tend to help stabilize the variance of variables pertaining to concentration data [Cite: https://www.ncbi.nlm.nih.gov/pubmed/7595977]. However, we decide to keep the variables untransformed in order to retain the interpretability of our models. 
+
+```{r}
+par(mfrow=c(1,2))
+boxplot(wine$chlorides ~ wine$color, main = "Without Log Transformation", ylab = "chlorides", names = c("white", "red"), col=c('mintcream', 'mistyrose'))
+boxplot(log(wine$chlorides) ~ wine$color, main = "With Log", ylab = "chlorides", names = c("white", "red"), col=c('mintcream', 'mistyrose'))
+```
+
+```{r variable_transformations}
+# Do we need to convert the concentrations that are mg/dm3 compared to those that are g/dm3?
+
+# convert all concentration variables to the log scale
+origwine <- wine
+
+concvars <- c(
+  "fixed acidity",
+  "volatile acidity",
+  "citric acid",
+  "residual sugar",
+  "chlorides",
+  "free sulfur dioxide",
+  "total sulfur dioxide",
+  "sulphates"
+)
+
+wine <- 
+    origwine %>% 
+    mutate_at(.vars = vars(concvars),
+              .funs = log1p) %>% 
+    # scale the data (can turn off later)
+    mutate_at(vars(-color, -quality), funs(scale(.) %>% as.numeric))
+```
+
+A series of matrix plots do not suggest that there are any non-linear relationships in the data. However, we do see a positive linear relationship between "free sulfur dioxide" and "total sulfur dioxide." The correlation coefficient for the two variables is 0.72. It is not surprising that the variables are related, since total sulfur dioxide is defined as the sum of free and bound sulfur dioxide. There is also slight collinearity between residual sugar and density, which has a correlation coefficient of 0.55.
+
+<random matrix plot>
+<pairs plot: free sulfur dioxide vs total sulfur dioxide>
+<pairs plot: residual sugar vs density>
+```{r pairs-plot, message=FALSE}
+# pairs plot of the n variables with the greatest variance
+n <- 5
+p <-  
+  wine %>%
+  recode_color %>%
+  ggpairs(
+    mapping=aes(color=color, alpha=0.4),
+    columns=c('free sulfur dioxide',
+              'total sulfur dioxide',
+              'residual sugar',
+              'density')
+    # if we want n variables with greatest variance, change to
+    # variable_var$key[1:n]
+  )
+for(i in 1:p$nrow) {
+  for(j in 1:p$ncol){
+    p[i,j] <- p[i,j] + 
+      scale_color_manual(values = c("Red" = "#E31A1C", "White" = "#33A02C")) +
+      scale_fill_manual(values = c("Red" = "#E31A1C", "White" = "#33A02C"))
+  }
+}
+
+p
+```
+
+Next, we consider how wine color affects the variables. There are 4898 white wines and 1599 red wines. White wines tend to have a higher rating. 66% of white wines are rated above 5 and five white wines are rated 9, while only 53% of red wines are rated above 5 and none of them receive a rating of 9. To visualize the differences, we consider the distribution of each variable, partitioned by the discrete integer-valued ratings and wine color (below). Some of the density plots are based on a small number of samples - only 10 red wines and 20 white wines are rated 3, and only 18 red wines are rated 8. We therefore focus our analysis on the distributions corresponding to ratings between 4 and 7, which both have over 50 examples for each color. 
+
+<Meena plots>
+[NB: unscaled data!]
+```{r plots, message=FALSE, warning=FALSE}
+# ridge plot function
+ridgeplot <- function(winevar) {
+    origwine %>%
+    recode_color %>%
+    ggplot(aes(y = quality)) +
+    geom_density_ridges(aes_q(x = as.name(winevar), 
+                              fill = paste(origwine$quality, origwine$color)), 
+                        alpha = .8, 
+                        color = "white", 
+                        rel_min_height = 0.01) +
+    labs(x = Hmisc::capitalize(gsub(x = winevar,
+                                    pattern = "\\.",
+                                    replacement = " ")),
+         y = "Wine quality") +
+    scale_y_discrete(expand = c(0.01, 0)) +
+    scale_x_continuous(expand = c(0.01, 0)) +
+    scale_fill_cyclical(breaks = c("3 red", "3 white"),
+                        labels = c(`3 red` = "Red", `3 white` = "White"),
+                        values = c("3 red" = "#E31A1C",
+                                   "3 white" = "#33A02C",
+                                   "4 red" = "#FB9A99",
+                                   "4 white" = "#B2DF8A",
+                                   "5 red" = "#E31A1C",
+                                   "5 white" = "#33A02C",
+                                   "6 red" = "#FB9A99",
+                                   "6 white" = "#B2DF8A",
+                                   "7 red" = "#E31A1C",
+                                   "7 white" = "#33A02C",
+                                   "8 red" = "#FB9A99",
+                                   "8 white" = "#B2DF8A",
+                                   "9 white" = "#33A02C"),
+                        name = "Wine colour", 
+                        guide = "legend") +
+    theme_ridges(grid = FALSE, font_size = 11)
+}
+
+# make ridgeplots
+ridgeplotlist <- lapply(names(origwine)[1:11], ridgeplot)
+ridgeplots_grid <- ggpubr::ggarrange(plotlist = ridgeplotlist, ncol = 2, nrow = 2)
+ridgeplots_grid
+```
+
+We see from the plots that the color of the wine does indeed interact with the predictors. The plots reveal that red wines tend to have higher fixed acidity, volatile acidity, chlorides, pH and sulphates. Alternatively, white wines have higher citric acid, total sulfur dioxide and a distinct right-skew in the distribution of residual sugar. This confirms a natural intuition that it is more common for white wines to be sweet than red wines and that red wines tend to have more sulphates. We also notice an interesting trend with citric acid. While low-quality red wines tend to have less citric acid than low-quality white wines, the trend appears to reverse for high-quality wines. Red wine also has a wider range of citric acid values. However, it is hard to be certain that these particular trends are significant, since the number of samples is low for wines with especially high and low ratings. 
+
+These graphs also indicate that certain variables are distributed differently among high- and low-quality wines. The white wines seem to have more stable distributions across ratings than the red wines, mostly bunched up into a small range with just a few outliers. For the red wines, very high volatile acidity seems to be an indication that the wine is of poor quality. We also observe that highly rated red wines tend to have more sulphates. Finally, the strongest indicator of wine quality seems to be alcohol, where quality tends to increase with alcohol percentage for both red and white wines alike.

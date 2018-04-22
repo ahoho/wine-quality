@@ -117,14 +117,10 @@ for (k in 1:14){
 }
   
 hist(wines$citric.acid)
-table(wines$citric.acid)
 
 hist(wines$residual.sugar)
-table(wines$residual.sugar)
 
 hist(wines$chlorides)
-table(wines$chlorides)
 
 hist(wines$sulphates)
-table(wines$sulphates)
 ```
