@@ -316,7 +316,13 @@ if __name__ == '__main__':
   rf_importances = rf_feature_importances(regressors['rf'], x_train.columns)
   rf_importances.to_csv('./output/rf_importances_all.csv', index=False)
 
-  # Superwine creation
+  # save rf predictions
+  pd.DataFrame({
+    'pred': classifiers['rf'].predict(x_test),
+    'true': y_test
+  }).to_csv('./output/rf_clf_predictions.csv', index=False)
+
+  ## Superwine creation
   lin = regressors['linear'].best_estimator_
   svm = regressors['svm'].best_estimator_
 
