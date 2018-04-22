@@ -81,7 +81,7 @@ recode_color <- function(x){
 
 This research project investigates the performance and utility of an "AI sommelier" - Delicious AI's flagship, eponymous, artificial intelligence application for the automatic identification and rating of high quality wines. For Delicious AI, the "AI sommelier" is likely to be the first of many artificial intelligence applications focusing on the food and drinks market. Understanding the "AI sommelier's" performance and usability is vital for Delicious AI's long-term vision of creating artificial intelligences with an appreciation for quality food. In order to develop an AI which can create high quality novel cuisine, it is important to establish whether an AI can identify quality in the first place.
 
-As part of the initial scoping out of this project, we have been employed by Delicious AI to investigate the possibility of using machine learning techniques to automatically evaluate a range of high quality wines in a reliable, accurate, efficient, and scalable manner. We determine which features are associated with highly rated wines and explore whether it will be possible for an algorithm to provide the recipe for a wine better than any seen before. Finally, we develop an early detection AI sommelier that can predict wine quality from grapes that are still on the vine, guiding the wine-making process from beginning to end.
+As part of the initial scoping out of this project, we have been employed by Delicious AI to investigate the possibility of using machine learning techniques to automatically evaluate a range of high quality wines in a reliable, accurate, efficient, and scalable manner. In addition to creating an AI sommelier, we determine which features are associated with highly rated wines, evaluating the predictive power of various chemical components as well as wine color. We later explore whether it is possible for an algorithm to provide the recipe for a wine better than any seen before. Finally, we develop a revolutionary super-human AI sommelier that can predict wine quality from grapes that are still on the vine, guiding the wine-making process from beginning to end.
 
 In this report we summarise the results of our investigations and provide our recommendations for your "AI sommelier" product. We trust that it will provide you with useful information on the performance and utility of an "AI sommelier", and additionally inform the extent to which you allocate analytical resources towards developing your food and drink AIs.
 
@@ -90,79 +90,17 @@ In this report we summarise the results of our investigations and provide our re
 
 We build and test the performance of five different AI Sommelier models: an intercept-only dummy regressor model (DR), a linear regression model (LR), a non-linear support vector machine (SVM), a random forest (RF), and a multi-layer perceptron (MLP). We also include two different methods of categorizing the quality of wines, either treating the 1-10 ratings as a continuous variable (univariate regression) or a categorical variable (deterministic classification). We find that our models perform best when the ratings are treated as a continuous variable and are pleased to report that the RF Sommelier is our highest performer, with a prediction accuracy of [?]. The agent with the lowest performance (apart from the dummy) is the MLP Sommelier. 
 
-The RF Sommelier has many advantages. It is able to deal with minimally pre-processed input data, can perform automatic feature selection, and is relative easy to interpret by human sommeliers, providing us with additional insight into which features are most important in producing a quality wine. After consulting with the RF Sommelier, we determined that alcohol is the most important predictor of wine quality, where ratings increase with alcohol content. The next most important factor is volatile acidity (i.e. mass concentration of acetic acid), which tends to be lower in good wines. Fixed acidity and wine color (red or white) are the least important factors.
+The RF Sommelier has many advantages. It is able to deal with minimally pre-processed input data, can perform automatic feature selection, and is relatively easy to interpret by human sommeliers, providing us with additional insight into which features are most important in producing a quality wine. After consulting with the RF Sommelier, we determined that alcohol is the most important predictor of wine quality, where ratings increase with alcohol content. The next most important factor is volatile acidity (i.e. mass concentration of acetic acid), which tends to be lower in good wines. Fixed acidity and wine color (red or white) are the least important factors.
 
+We find that none of the models are able to accurately predict wine quality from  wine color alone, which aligns with the low importance that the RF Sommelier places on color. This suggests that red wines and white wines are just as easily good or bad, although curiously only white wines received the highest rating of 9. However, it is still important to include color in the model. The AI Sommeliers tend to predict quality more accurately when they are aware of a wine's color, likely because the color interacts with other variables.
 
+Next, we present a few potential "perfect wine" recipes at the end of the paper. The SVM Sommelier (the second highest performer) and LR Sommelier are well-suited for the task, as they are both capable of creatively predicting values beyond the range of the data used in training, enabling them to envision a "perfect 10" wine. Not all the AI sommeliers could agree on the rating of the AI-generated recipes. However, bot hte LR Sommelier and SVM Sommelier came up with wines that had higher levels of free sulfur dioxide and lower levels of total sulfur dioxide than the average wine in the dataset.
+
+Finally, we present a super-human RF Sommelier that is able to predict the quality of a wine from a subset of features that can be detected before the fermentation process. These include color, fixed acidity, citric acid, residual sugar, and chlorides. The super-human RF Sommelier has an accuracy of [?] and manages to outperform the LR Sommelier trained on all the features.
 
 ## Conclusions
 
-- inhuman ability to be consistent in its ratings of wines
-- super-human in its ability to rate wines at scale
-- Delicious AI can periodically evaluate the wines at different stages of the production process, predicting the future quality of a wine before it even exists
-- early-prediction algorithm
-- Delicious AI can suggest new combinations of features that wine producers may not have otherwise considered
-- we can always train Delicious AI on different data in order to predict individual or demographically relevant ratings
-
-1. Supposing that certain variables are detectable early in the wine-making process, is it possible to train a model on these variables alone that is sufficiently predictive of the sommelier ratings?
-2. Which features are most strongly associated with high-quality ratings?
-3. Is it possible to simulate a (reasonable) dataset of wines, upon some subset of which our "best" learner estimates a rating of 10?
-4. Can we produce a model that is predictive of the expert ratings? 
-5. Do the raw data support relationships between objective qualities and the ratings? 
-
-- Our predictive benchmarking experiments were first carried out with wine quality treated as a continuous variable (univariate regression) and then repeated with wine quality treated as a categorical variable (deterministic classification)
-
-- an intercept-only dummy regressor model (DR)
-- a linear regression model (LR)
-- a non-linear support vector machine (SVM),
-- an ensemble of (at least 10) trees (RF)
-- a neural network with two or more middle layers (MLP)
-
-- The SVM has previously been identified as the best performing model for classifying wine by quality
-- linear regression model, Random Forests are relatively easy to understand and quick to implement
-- Random forests: able to deal with a minimally pre-processed input data, can perform automatic feature selection, and provide information on the importance of model features
-
-Neural networks
-- able to create and combine new features independently
-- perform well on classification tasks
-- harder to interpret the relationship between features and classification decisions
-- able to work with unlabelled data
-
-- The random forest algorithm is the best performer on both metrics under consideration for the regression task
-- mse: 0.30, mae: 0.39
-
-- Dummy regressor
-- mse: 0.69, mae: 0.65
-
-- On the MSE metric, the SVM is the next best performer, followed by the linear model, the MLP, and finally the dummy regressor
-- wine colour alone is not a strong predictor of quality, error increases for all models
-- without wine color, error had more of an adverse effect on deterministic classification than regression
-
-- A useful characteristic of the random forest algorithm is its ability to determine the relative salience of the various features utilised during training
-- alcohol is most important
-- followed by volatile acidity i.e. mass concentration of acetic acid and density
-- fixed acidity and color are least important
-
-- By creating mixtures of chemicals (and color) -- limited only to the ranges observed in the test data
-- we attempt to simulate a wine that will achieve a perfect "10" rating by our models' estimates
-
-- We use a support vector machine (SVM) and linear regression model to produce two possible "super-wines", since they are both capable of predicting values beyond the range of data used in training
-
-- linear regression
-- maximize the values of each feature known to correspond to high quality wines
-- minimize those associated with low-quality wines
-
-SVM
-- randomly sample values for each predictor (within the range of the training data) and feed the artificial wine into the SVM, stopping when we achieve a rating above 10
-
-- fail to achieve 10 ratings across all models, which is to be expected, since they were optimized for these particular models
-
-- higher levels of free sulfur dioxade but lower levels of total sulfur dioxide than the average wine in the data
-- increased levels of chlorides and residual sugar
-
-- a wine's color, fixed acidity, citric acid, residual sugar, and chlorides are all largely determined by grape characteristics rather than effects of the fermentation process. Limiting ourselves to these components alone, our best model acheives a mean squared error of 0.49
-- best on all data: 0.30
-- outperforms linear model on all data: 0.55
-- help guide the manufacturing process, alerting winemakers to potential problems with a batch
+We conclude that we can successfully develop an AI Sommelier that can accurately predict the quality of wine in accordance with expert ratings. We also find that there are empirical characteristics associated with wines rated highly by sommeliers, such as increased alcohol content. The AI Sommeliers we reccommend in this paper have the advantage of consistency, scalability, and interpretability. Although the predictions are most accurate when using the full set of wine characteristics, including color, the AI Sommeliers are still able to predict quality from just a subset of the data, enabling us to develop a novel early-detection algorithm that can predict the quality of a wine before the fermentation process even begins. We hope that our AI Sommeliers can help add value to the wine production process and encourage human sommeliers try the new AI-generated recipes for themselves.
 
 ## Limitations
 
