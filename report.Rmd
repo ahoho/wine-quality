@@ -409,7 +409,7 @@ ridgeplot <- function(winevar) {
 # make ridgeplots
 ridgeplotlist <- lapply(c('alcohol', 'sulphates', 'volatile acidity', 'total sulfur dioxide'), ridgeplot)
 ridgeplots_grid <- ggpubr::ggarrange(plotlist = ridgeplotlist, ncol = 2, nrow = 2)
-ridgeplots_grid[1]
+ridgeplots_grid
 ```
 
 We see from the plots that the color of the wine does indeed interact with the predictors. The plots reveal that red wines tend to have higher fixed acidity, volatile acidity, chlorides, pH and sulphates. Alternatively, white wines have higher citric acid, total sulfur dioxide and a distinct right-skew in the distribution of residual sugar. This confirms a natural intuition that it is more common for white wines to be sweet than red wines and that red wines tend to have more sulphates. We also notice an interesting trend with citric acid. While low-quality red wines tend to have less citric acid than low-quality white wines, the trend appears to reverse for high-quality wines. Red wine also has a wider range of citric acid values. However, it is hard to be certain that these particular trends are significant, since the number of samples is low for wines with especially high and low ratings. 
@@ -664,7 +664,7 @@ def evaluate_models(model_dir, x_test, y_test, **kwargs):
   return results
 ```
 
-```{python load-data, engine.path='C:/Miniconda3/envs/py36/python.exe', eval=FALSE}
+```{python load-data, eval=FALSE}
 data_fpath = './intermediate/wine_logged_unscaled.feather'
   
 ## Data Collection 
@@ -673,14 +673,19 @@ data_fpath = './intermediate/wine_logged_unscaled.feather'
 x_train, x_test, y_train, y_test = gen_data(data_fpath)
 # color only
 x_train_col, x_test_col, y_train_col, y_test_col = gen_data(
-  data_fpath, features_to_drop=[c for c in x_train.columns if c != 'color'])
+  data_fpath, features_to_keep=['color'])
 # chemicals only
 x_train_chm, x_test_chm, y_train_chm, y_test_chm = gen_data(
   data_fpath, features_to_drop=['color'])
+# "early" varaibles that enable early detection
+x_train_sup, x_test_sup, y_train_sup, y_test_sup = gen_data(
+  data_fpath, features_to_keep=[
+  'color', 'fixed acidity', 'citric acid', 'residual sugar', 'chlorides'
+])
 ```
 
-```{python train-models, engine.path='C:/Miniconda3/envs/py36/python.exe', eval=FALSE}
-# train on all data
+```{python train-models, eval=FALSE}
+# train on all variables
 train('unscaled', x_train, y_train)
 
 # train on colors only
@@ -688,18 +693,23 @@ train('unscaled-color', x_train_col, y_train_col)
 
 # train on chemicals, no color
 train('unscaled-chemical', x_train_chm, y_train_chm)
+
+# train on early-detection variables
+train('unscaled-superhuman', x_train_sup, y_train_sup)
 ```
 
-```{python eval-models, engine.path='C:/Miniconda3/envs/py36/python.exe', eval=FALSE}
+```{python eval-models, eval=FALSE}
 ## Evaluation
 results_all = evaluate_models('unscaled', x_test, y_test)
 results_col = evaluate_models('unscaled-color', x_test_col, y_test_col)
 results_chm = evaluate_models('unscaled-chemical', x_test_chm, y_test_chm)
+results_sup = evaluate_models('unscaled-superhuman', x_test_sup, y_test_sup)
 
 #save 
 results_all.to_csv('./output/results_unscaled_all.csv', index=False)
 results_col.to_csv('./output/results_color_all.csv', index=False)
 results_chm.to_csv('./output/results_chemical_all.csv', index=False)
+results_sup.to_csv('./output/results_superhuman_all.csv', index=False)
 ```
 
 ```{python rf-feature-importances, eval=FALSE}
@@ -1089,7 +1099,7 @@ By creating mixtures of chemicals (and color) -- limited only to the ranges obse
 
 We use a support vector machine (SVM) and linear regression model to produce two possible "super-wines", since they are both capable of predicting values beyond the range of data used in training. For the linear regression model, we maximize the values of each feature known to correspond to high quality wines, and minimize those associated with low-quality wines. For the SVM, we can randomly sample values for each predictor (within the range of the training data) and feed the artificial wine into the SVM, stopping when we achieve a rating above 10.
 
-```{python superwine, engine.path='C:/Miniconda3/envs/py36/python.exe', eval=FALSE}
+```{python superwine, eval=FALSE}
 # Superwine creation
 lin = regressors['linear'].best_estimator_
 svm = regressors['svm'].best_estimator_
@@ -1295,6 +1305,212 @@ wine %>%
 wine$cluster <- NULL
 ```
 
+# Appendix B
+
 ## Code
-```{r, ref.label=knitr::all_labels(), echo=TRUE, eval=FALSE}
+
+Note that the code is a mixture of R and Python. Python is noted when used.
+
+### Setup
+Knitr Setup
+```{r code_setup, ref.label='setup', eval = FALSE, echo=TRUE}
+
+```
+
+Load R packages
+```{r code_load_pkgs, ref.label='load_pkgs', eval = FALSE, echo=TRUE}
+
+```
+
+Load data
+```{r code_load_data, ref.label='load_data', eval = FALSE, echo=TRUE}
+
+```
+
+In order to avoid fighting with factors, we make a function to move from hard-coded numbers to colors.
+```{r code_helper-functions, ref.label='helper-functions', eval = FALSE, echo=TRUE}
+
+```
+
+### Data exploration
+Create table of summary statistics.
+```{r code_summary-stats, ref.label='summary-stats', eval = FALSE, echo=TRUE}
+
+```
+
+Create histograms.
+```{r code_histograms, ref.label='histograms', eval = FALSE, echo=TRUE}
+
+```
+
+Create boxplots to compare log transformed data with original concentration values.
+```{r code_boxplots, ref.label='boxplots', eval = FALSE, echo=TRUE}
+
+```
+
+Plot a correlation heatmap of the variables.
+```{r code_cor-heatmap, ref.label='cor-heatmap', eval = FALSE, echo=TRUE}
+
+```
+
+Log-transform the data.
+```{r code_variable_transformations, ref.label='variable_transformations', eval = FALSE, echo=TRUE}
+
+```
+
+Make a pairs-plot of the log-transformed data.
+```{r code_pairs-plot, ref.label='pairs-plot', eval = FALSE, echo=TRUE}
+
+```
+
+Generate ridge plots of a few select variables.
+```{r code_ridge-plots, ref.label='ridge-plots', eval = FALSE, echo=TRUE}
+
+```
+
+Save the data for training.
+```{r code_save-data, ref.label='save-data', eval = FALSE, echo=TRUE}
+
+```
+
+### Model Training and Evaluation
+
+We move to python to learn our models.
+```{python code_imports, ref.label='imports', eval = FALSE, echo=TRUE}
+
+```
+
+Setup functions to train models.
+```{python code_train-functions, ref.label='train-functions', eval = FALSE, echo=TRUE}
+
+```
+
+Setup functions to evaluate models.
+```{python code_eval-functions, ref.label='eval-functions', eval = FALSE, echo=TRUE}
+
+```
+
+Load the data and split into train and test sets.
+```{python code_load-data, ref.label='load-data', eval = FALSE, echo=TRUE}
+
+```
+
+Train the models.
+```{python code_train-models, ref.label='train-models', eval = FALSE, echo=TRUE}
+
+```
+
+Calculating errors on bootstrapped test data.
+```{python code_eval-models, ref.label='eval-models', eval = FALSE, echo=TRUE}
+
+```
+
+Save the random forest feature importances.
+```{python code_rf-feature-importances, ref.label='rf-feature-importances', eval = FALSE, echo=TRUE}
+
+```
+
+### Benchmarking
+
+Build funtions to report benchmarking results.
+```{r code_make_benchmark_outputs, ref.label='make_benchmark_outputs', eval = FALSE, echo=TRUE}
+
+```
+
+Report on model performance.
+```{r code_regtask-results-tab, ref.label='regtask-results-tab', eval = FALSE, echo=TRUE}
+
+```
+
+```{r code_regtask-results-fig, ref.label='regtask-results-fig', eval = FALSE, echo=TRUE}
+
+```
+
+```{r code_regtask-results-fig2, ref.label='regtask-results-fig2', eval = FALSE, echo=TRUE}
+
+```
+
+```{r code_clftask-results-tab, ref.label='clftask-results-tab', eval = FALSE, echo=TRUE}
+
+```
+
+```{r code_clftask-results-fig, ref.label='clftask-results-fig', eval = FALSE, echo=TRUE}
+
+```
+
+```{r code_clftask-results-fig2, ref.label='clftask-results-fig2', eval = FALSE, echo=TRUE}
+
+```
+
+Analyze the RF classification error (first running in python, and analyzing in R).
+```{python code_error-analyze, ref.label='error-analyze', eval = FALSE, echo=TRUE}
+
+```
+
+Make a confusion matrix.
+```{r code_confusion-matrix, ref.label='confusion-matrix', eval = FALSE, echo=TRUE}
+
+```
+
+### Linear Regression Interpretation
+
+Fit the linear model and interpret coefficients.
+```{r code_calculate_linear_reg, ref.label='calculate_linear_reg', eval = FALSE, echo=TRUE}
+
+```
+
+Make the table of linear regression coefficients.
+```{r code_linear-reg-tab, ref.label='linear-reg-tab', eval = FALSE, echo=TRUE}
+
+```
+
+### Random forest interpretation
+
+Make table of RF feature importances.
+```{r code_rf-impvar-results-tab, ref.label='rf-impvar-results-tab', eval = FALSE, echo=TRUE}
+
+```
+
+Make function to get statistics of RF feature importances.
+```{r code_rf_impvar_get_stat, ref.label='rf_impvar_get_stat', eval = FALSE, echo=TRUE}
+
+```
+
+### "Superwine" and "Superhuman"
+
+Moving back to python, we use our models to evaluate a simulated wine.
+```{python code_superwine, ref.label='superwine', eval = FALSE, echo=TRUE}
+
+```
+
+Load in these results to R.
+```{r code_superwine-eval, ref.label='superwine-eval', eval = FALSE, echo=TRUE}
+
+```
+
+Make a table of the superwine features.
+```{r code_simwine-preds-tab, ref.label='simwine-preds-tab', eval = FALSE, echo=TRUE}
+
+```
+
+Plot predictions of models on the superwines.
+```{r code_simwine-preds-fig1, ref.label='simwine-preds-fig1', eval = FALSE, echo=TRUE}
+
+```
+
+Pull out the results of the early-detection model.
+```{r code_superhuman-results, ref.label='superhuman-results', eval = FALSE, echo=TRUE}
+
+```
+
+
+### Clustering code
+Make clusters of the data
+
+```{r code_mclust, ref.label='mclust', eval = FALSE, echo=TRUE}
+
+```
+
+```{r code_plot-clustering, ref.label='plot-clustering', eval = FALSE, echo=TRUE}
+
 ```
