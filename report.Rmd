@@ -82,7 +82,7 @@ This research project investigates the performance and utility of an "AI sommeli
 
 As part of the initial scope of this project, we have been employed by Delicious AI to investigate the possibility of using machine learning techniques to automatically evaluate the quality of wines in a reliable, accurate, efficient, and scalable manner. In addition to creating an AI sommelier, we determine which features are associated with highly rated wines, evaluating the predictive power of various chemical components as well as wine color. We later explore whether it is possible for an algorithm to help create a wine whose quality exceeds that of those previously observed. Finally, we develop a revolutionary super-human AI sommelier prototype that could be extended to predict wine quality from grapes that are still on the vine, guiding the wine-making process from beginning to end.
 
-In this report we summarise the results of our investigations and provide our recommendations for your "AI sommelier" product. We trust that it will provide you with useful information on the performance and utility of an "AI sommelier", and additionally inform the extent to which you allocate analytical resources towards developing your food and drink AIs.
+In this report we summarise the results of our investigations and provide our recommendations for Delicious AI's "AI sommelier" product. We trust that it will provide Delicious AI with useful information on the performance and utility of an "AI sommelier", and additionally inform the extent to which Delicious AI allocates analytical resources towards developing food and drink AIs.
 
 
 ## Key Findings
