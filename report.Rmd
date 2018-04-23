@@ -5,7 +5,6 @@ header-includes:
    - \usepackage{amsmath, amsfonts, nicefrac, bm, fancyhdr}
    - \pagestyle{fancy}
    - \fancyhf{}
-   - \rhead{16035918, 16044460, 17107203}
    - \rfoot{Page \thepage}
    - \usepackage{booktabs}
    - \usepackage{longtable}
@@ -93,7 +92,7 @@ One of the advantages of the RF Sommelier is interpretability. Using the RF Somm
 
 We find that none of the models are able to accurately predict wine quality from wine color alone. This aligns with the low importance that the RF Sommelier places on color and suggest that neither red nor white wines tend to be rated higher. However, many of the AI Sommeliers predict quality more accurately when they are aware of a wine's color so it is important to include color in the model, likely because the color interacts with other variables.
 
-A few potential "perfect wine" recipes are presented at the end of the paper. The SVM Sommelier (the second highest performer) and LR Sommelier are well-suited for the task, as they are both capable of predicting values beyond the range of the data used in training, enabling them to envision a "perfect 10" wine. Not all the AI sommeliers could agree on the ratings of the AI-generated recipes. However, we notice that both the LR Sommelier and SVM Sommelier came up with wines that have relatively high levels of free sulphur dioxide and low levels of total sulphur dioxide, suggesting these characteristics improve wine quality.
+A few potential "perfect wine" recipes are presented at the end of the paper. The SVM Sommelier (the second highest performer) and LR Sommelier are well-suited for the task, as they are both capable of predicting values beyond the range of the data used in training, enabling them to envision a "perfect 10" wine. Not all the AI sommeliers could agree on the ratings of the AI-generated recipes. However, we notice that both the LR Sommelier and SVM Sommelier came up with wines that have relatively high levels of free sulfur dioxide and low levels of total sulfur dioxide, suggesting these characteristics improve wine quality.
 
 Finally, we present a "super-human"" RF Sommelier that is able to predict the quality of a wine from a subset of features that can be detected before the fermentation process. These include color, fixed acidity, citric acid, residual sugar, and chlorides. The super-human RF Sommelier has a mean error of about 0.5 points, and manages to outperform the LR Sommelier trained on all the features.
 
@@ -189,7 +188,7 @@ In line with the project specification provided by Delicious AI, all wines were 
 
 # Exploratory analysis
 
-First, we confirm that there are no missing entries in the dataset. We also notice that there are many more white wines (4898) than red wines (1599). Next, for each variable, we plot a summary of the range, mean, median, and first and third quartiles, shown below. A few variables in particular stand out. Citric acid, for example, has a minimum value of zero. Further investigation shows that there are 151 zero entries for citric acid. This indicates that it is an optional component in wine-making. In addition, we see that different variables take on quite different ranges of values. For instance, while "volatile acidity" ranges from 0.08 to 1.58, "free sulphur dioxide" ranges from 1 to 289. This suggests that we should try models in which we normalize the variables, although it would be easier to interpret unscaled models. We also notice that the ratings range from 3 to 9, indicating that no wines were "perfect" enough to achieve a 10 or awful enough to be rated 1 or 2.
+First, we confirm that there are no missing entries in the dataset. We also notice that there are many more white wines (4898) than red wines (1599). Next, for each variable, we plot a summary of the range, mean, median, and first and third quartiles, shown below. A few variables in particular stand out. Citric acid, for example, has a minimum value of zero. Further investigation shows that there are 151 zero entries for citric acid. This indicates that it is an optional component in wine-making. In addition, we see that different variables take on quite different ranges of values. For instance, while "volatile acidity" ranges from 0.08 to 1.58, "free sulfur dioxide" ranges from 1 to 289. This suggests that we should try models in which we normalize the variables, although it would be easier to interpret unscaled models. We also notice that the ratings range from 3 to 9, indicating that no wines were "perfect" enough to achieve a 10 or awful enough to be rated 1 or 2.
 
 ```{r summary-stats, warning=FALSE, message=FALSE}
 q025 <- function(x) quantile(x, 0.25)
@@ -287,7 +286,7 @@ wine %>%
         axis.line = element_line(color = 'black'))
 ```
 
-A series of matrix plots do not suggest that there are any non-linear relationships in the data. However, we do see a positive linear relationship between "free sulphur dioxide" and "total sulphur dioxide." The correlation coefficient for the two variables is 0.72 and a correlation plot is shown below. It is not surprising that the variables are related, since total sulphur dioxide is defined as the sum of free and bound sulphur dioxide. There is also slight collinearity between residual sugar and density, which has a correlation coefficient of 0.55. Third, we notice a high negative correlation between alcohol and density of -0.69. It is intuitive that increasing the alcohol percentage would decrease the density, as alcohol is less dense than water and juice.
+A series of matrix plots do not suggest that there are any non-linear relationships in the data. However, we do see a positive linear relationship between "free sulfur dioxide" and "total sulfur dioxide." The correlation coefficient for the two variables is 0.72 and a correlation plot is shown below. It is not surprising that the variables are related, since total sulfur dioxide is defined as the sum of free and bound sulfur dioxide. There is also slight collinearity between residual sugar and density, which has a correlation coefficient of 0.55. Third, we notice a high negative correlation between alcohol and density of -0.69. It is intuitive that increasing the alcohol percentage would decrease the density, as alcohol is less dense than water and juice.
 
 ```{r cor-heatmap, fig.cap="Variable Correlations", fig.show='hold', fig.height=5, fig.width=5}
 wine_cor <-
@@ -323,8 +322,8 @@ concvars <- c(
   "citric acid",
   "residual sugar",
   "chlorides",
-  "free sulphur dioxide",
-  "total sulphur dioxide",
+  "free sulfur dioxide",
+  "total sulfur dioxide",
   "sulphates"
 )
 
@@ -344,8 +343,8 @@ p <-
   recode_color %>%
   ggpairs(
     mapping=aes(color=color, alpha=0.4),
-    columns=c('free sulphur dioxide',
-              'total sulphur dioxide',
+    columns=c('free sulfur dioxide',
+              'total sulfur dioxide',
               'residual sugar',
               'density',
               'alcohol')
@@ -403,12 +402,12 @@ ridgeplot <- function(winevar) {
 }
 
 # make ridgeplots
-ridgeplotlist <- lapply(c('alcohol', 'sulphates', 'volatile acidity', 'total sulphur dioxide'), ridgeplot)
+ridgeplotlist <- lapply(c('alcohol', 'sulphates', 'volatile acidity', 'total sulfur dioxide'), ridgeplot)
 ridgeplots_grid <- ggpubr::ggarrange(plotlist = ridgeplotlist, ncol = 2, nrow = 2)
 ridgeplots_grid
 ```
 
-We see from the plots that the color of the wine does indeed interact with the predictors. The plots reveal that red wines tend to have higher fixed acidity, volatile acidity, chlorides, pH and sulphates. Alternatively, white wines have higher citric acid, total sulphur dioxide and a distinct right-skew in the distribution of residual sugar. This confirms a natural intuition that it is more common for white wines to be sweet than red wines and that red wines tend to have more sulphates. We also notice an interesting trend with citric acid. While low-quality red wines tend to have less citric acid than low-quality white wines, the trend appears to reverse for high-quality wines. Red wine also has a wider range of citric acid values. However, it is hard to be certain that these particular trends are significant, since the number of samples is low for wines with especially high and low ratings. 
+We see from the plots that the color of the wine does indeed interact with the predictors. The plots reveal that red wines tend to have higher fixed acidity, volatile acidity, chlorides, pH and sulphates. Alternatively, white wines have higher citric acid, total sulfur dioxide and a distinct right-skew in the distribution of residual sugar. This confirms a natural intuition that it is more common for white wines to be sweet than red wines and that red wines tend to have more sulphates. We also notice an interesting trend with citric acid. While low-quality red wines tend to have less citric acid than low-quality white wines, the trend appears to reverse for high-quality wines. Red wine also has a wider range of citric acid values. However, it is hard to be certain that these particular trends are significant, since the number of samples is low for wines with especially high and low ratings. 
 
 These graphs also indicate that certain variables are distributed differently among high- and low-quality wines. The white wines seem to have more stable distributions across ratings than the red wines, mostly bunched up into a small range with just a few outliers. For the red wines, very high volatile acidity seems to be an indication that the wine is of poor quality. We also observe that highly rated red wines tend to have more sulphates. Finally, the strongest indicator of wine quality seems to be alcohol, where quality tends to increase with alcohol percentage for both red and white wines alike.
 
@@ -1035,7 +1034,7 @@ res %>%
 
 ```
 
-Table \@ref(tab:linear-reg-tab) shows how each feature was associated with wine quality. With all other variables held constant, the mean wine quality score was `r round(res[res$term == "(Intercept)", ]$estimate,1)`. All variables were significantly associated with wine quality except for citric acid. In terms of features associated with a good wine, we found relatively larger, positive coefficients from the alcohol volume, colour (red), and residual sugar measures. Notably negative coefficients were present for volatile acidity (the mass concentration of acetic acid, g/dm$^3$), density, and mass concentration of total sulphur dioxide (mg/dm$^3$). This suggested that wines with higher alcohol volume, higher residual sugar, and red wines typically had slightly higher quality scores, whilst wines with higher volatile acidity, higher density, and a greater concentration of total sulphur dioxide typically had slightly lower quality scores, holding all else constant. Whether these features completely capture what makes a wine a "good" wine is debatable however, especially in the simple linear context.
+Table \@ref(tab:linear-reg-tab) shows how each feature was associated with wine quality. With all other variables held constant, the mean wine quality score was `r round(res[res$term == "(Intercept)", ]$estimate,1)`. All variables were significantly associated with wine quality except for citric acid. In terms of features associated with a good wine, we found relatively larger, positive coefficients from the alcohol volume, colour (red), and residual sugar measures. Notably negative coefficients were present for volatile acidity (the mass concentration of acetic acid, g/dm$^3$), density, and mass concentration of total sulfur dioxide (mg/dm$^3$). This suggested that wines with higher alcohol volume, higher residual sugar, and red wines typically had slightly higher quality scores, whilst wines with higher volatile acidity, higher density, and a greater concentration of total sulfur dioxide typically had slightly lower quality scores, holding all else constant. Whether these features completely capture what makes a wine a "good" wine is debatable however, especially in the simple linear context.
 
 ```{r rf-impvar-results-tab}
 
@@ -1124,7 +1123,7 @@ simwine_preds = pd.DataFrame({
 simwine_preds.to_csv('./output/simwine_preds.csv')
 ```
 
-Unfortunately, these "superwines" fail to achieve 10 ratings across all models, which is to be expected, since they were optimized for these particular models. However, they do indicate certain trends. As seen in Table \@ref(tab:simwine-preds-tab), they tend to have higher levels of free sulphur dioxide but lower levers of total sulphur dioxide than the average wine in the data, and have increased levels of chlorides and residual sugar.
+Unfortunately, these "superwines" fail to achieve 10 ratings across all models, which is to be expected, since they were optimized for these particular models. However, they do indicate certain trends. As seen in Table \@ref(tab:simwine-preds-tab), they tend to have higher levels of free sulfur dioxide but lower levers of total sulfur dioxide than the average wine in the data, and have increased levels of chlorides and residual sugar.
 
 ```{r superwine-eval, message=FALSE, warning=FALSE}
 simwine_preds <- read_csv('./output/simwine_preds.csv')
@@ -1227,8 +1226,8 @@ We used the Wine Quality Dataset for this project. This systematic data on 1599 
 3. mass concentration of citric acid ($\text{g/dm}^3$)
 4. residual sugar mass concentration ($\text{g/dm}^3$)
 5. mass concentration of sodium chloride ($\text{g/dm}^3$)
-6. mass concentration of free sulphur dioxide ($\text{mg/dm}^3$)
-7. mass concentration of sulphur dioxide total ($\text{mg/dm}^3$)
+6. mass concentration of free sulfur dioxide ($\text{mg/dm}^3$)
+7. mass concentration of sulfur dioxide total ($\text{mg/dm}^3$)
 8. density ($\text{g/dm}^3$)
 9. pH value
 10. mass concentration of potassium sulphate ($\text{mg/dm}^3$)
