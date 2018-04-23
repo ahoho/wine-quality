@@ -104,7 +104,9 @@ We conclude that we can successfully develop an AI Sommelier that can accurately
 
 ## Limitations
 
-Without more information, we are unable to determine with certainty if the AI Sommeliers can outperform humans' predictive performance on any given metric. It would help to have the individual wine ratings from each human sommelier so that we could have a better idea of human accuracy and the variance across individual wine ratings. We would also benefit from external, objective metrics associated with each wine (e.g., bottles sold per year) to further assess our models' versatility relative to that of humans. We are also unable to assert that the "perfect wines" would be rated a 10 by human sommeliers, since it is possible that the predictive models do not hold for extreme values of the features. A human expert would need to assess the quality of the proposed wine recipes. A final limitation is that the AI Sommeliers are only able to assess quality in accordance with expert ratings, which may differ from a winery's target market. By collecting additional data that is specific to a particular demographic (e.g., college students), wineries may re-train the AI Sommeliers to acquire a new taste that is more relevant to their individual goals.
+Without more information, we are unable to determine with certainty if the AI Sommeliers can outperform humans' predictive performance on any given metric. It would help to have the individual wine ratings from each human sommelier so that we could have a better idea of human accuracy and the variance across individual wine ratings. We would also benefit from external, objective metrics associated with each wine (e.g., bottles sold per year) to further assess our models' versatility relative to that of humans. In addition, the models were limited to considering the variables included in this particular dataset. There may exist additional variables related to wine quality that would improve the predictive power of the models.
+
+We are also unable to assert that the "perfect wines" would be rated a 10 by human sommeliers, since it is possible that the predictive models do not hold for extreme values of the features. A human expert would need to assess the quality of the proposed wine recipes. A final limitation is that the AI Sommeliers are only able to assess quality in accordance with expert ratings, which may differ from a winery's target market. By collecting additional data that is specific to a particular demographic (e.g., college students), wineries may re-train the AI Sommeliers to acquire a new taste that is more relevant to their individual goals.
 
 \newpage
 
@@ -141,7 +143,7 @@ It would be helpful to know the variance of ratings for each wine and how consis
 
 We can also see how accurately Delicious AI can predict wine ratings from the features alone. A high prediction accuracy will at least confirm that the ratings among sommeliers are not random and correspond to empirically verifiable differences in wine components.
 
-Of course, Delicious AI is only trained to approximate *expert* opinion, which is not necessarily an objective measure of wine quality and may differ from individual preferences or the preferences of the general wine-drinking public. But this is still valuable because expert opinion tends to drive market prices, and we can always train Delicious AI on different data in order to predict individual or demographically relevant ratings. Similarly, with additional data we Delicious AI could predict external metrics such as quantity sold or awards recieved.
+Of course, Delicious AI is only trained to approximate *expert* opinion, which is not necessarily an objective measure of wine quality and may differ from individual preferences or the preferences of the general wine-drinking public. But this is still valuable because expert opinion tends to drive market prices, and we can always train Delicious AI on different data in order to predict individual or demographically relevant ratings. Similarly, with additional data Delicious AI could predict external metrics such as quantity sold or awards recieved.
 
 # Methods and data
 
@@ -994,7 +996,7 @@ feather::write_feather(x = wine_lr, path = here::here("intermediate", "wine_logg
 
 ## What makes a wine a good wine
 
-In order to understand what makes a wine a good, we ran a simple linear regression model. All physiochemical variables were transformed to the log scale to capture the law of mass action being linear in log-concentration coordinates. Variables were additionally standardised to facilitate the interpretation of coefficients.
+In order to understand what makes a wine a good wine, we ran a simple linear regression model. All physiochemical variables were transformed to the log scale to capture the law of mass action being linear in log-concentration coordinates. Variables were additionally standardised to facilitate the interpretation of coefficients.
 
 ```{r linear-reg-tab, echo=FALSE, include=TRUE}
 
@@ -1188,7 +1190,7 @@ simwine_preds %>%
 
 ## A 'super-human' AI
 
-Although our models are likely to rate wines with greater consistentcy than sommeliers -- and perhaps make more accurate predictions on objective metrics, like provenance -- without more information we are unable to determine with certainty if Delicious AI can outperform humans' predictive performance on any given metric. Lacking data on measurable human performance, we cannot speak to a strictly "superhuman" capacity.
+Although our models are likely to rate wines with greater consistency than sommeliers -- and perhaps make more accurate predictions on objective metrics, like provenance -- without more information we are unable to determine with certainty if Delicious AI can outperform humans' predictive performance on any given metric. Lacking data on measurable human performance, we cannot speak to a strictly "superhuman" capacity.
 
 However, our models are, on average, able to rate wines to within a close margin of sommelier rankings using only a limited subset of information (e.g., the models cannot assess the aroma directly). Moreover, some of these characteristics are present early in the winemaking process, perhaps well before an expert could make a judgement of quality (although here too we would need more information to make such a determination).
 
